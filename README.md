@@ -15,3 +15,9 @@ Run the following code:
 ```julia
 ]test
 ```
+
+## TODOs:
+- Publish this as a package so that it can be installed directly?
+    - Make sure everyone is added as co-authors / maintainers in the .toml file
+- Make some adaptive documentation
+- Flesh out this TODO list :)
