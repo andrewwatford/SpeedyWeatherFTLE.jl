@@ -1,5 +1,6 @@
 module SpeedyWeatherFTLE
 
-# Write your package code here.
+export greet
+include("functions.jl")
 
 end
