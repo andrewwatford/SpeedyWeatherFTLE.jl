@@ -1,4 +1,4 @@
-using SpeedyWeather, LinearAlgebra, GLMakie, NCDatasets
+using SpeedyWeather, LinearAlgebra, NCDatasets
 
 Re = 6.371e6 # Average Earth radius in meters
 
@@ -222,7 +222,10 @@ function lyapunov_FTLE(; simulation_days=10, dist_km=10, backwards=false,
     end
 
     close(particles_ds)
+    rm(path) # Remove temporary netCDF file
 
     return FTLE_grid_time, grid, time_hours
 
 end
+
+export lyapunov_FTLE
