@@ -20,4 +20,7 @@ Run the following code:
 ## TODOs:
 - Publish this as a package so that it can be installed directly?
 - Make some actual documentation
+- Visualization functions:
+    - Globe function (with slider?)
+    - Slider through time
 - Flesh out this TODO list :)

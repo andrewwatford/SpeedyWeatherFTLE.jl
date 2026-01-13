@@ -1,6 +1,8 @@
 module SpeedyWeatherFTLE
 
+include("mock/greet.jl")
+include("visualization/surface_plot.jl")
 export greet
-include("functions.jl")
+export surface_plot
 
 end
