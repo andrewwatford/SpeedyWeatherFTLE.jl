@@ -1,6 +1,5 @@
 using SpeedyWeatherFTLE
 using Test
 
-@testset "SpeedyWeatherFTLE.jl" begin
-    @test SpeedyWeatherFTLE.greet() == "Hello World!"
-end
+include("greet.jl")
+include("dynamics/particle_advection.jl")
