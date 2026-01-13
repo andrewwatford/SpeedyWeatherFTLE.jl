@@ -1,4 +1,4 @@
-Starting SpeedyWeather.jl run_0001 on Tue, 13 Jan 2026 18:08:40
+Starting SpeedyWeather.jl run_0001 on Tue, 13 Jan 2026 18:16:04
 Integrating:
 SpectralGrid{Spectrum{...}, RingGrids.OctahedralGaussianGrid{...}}
 ├ Number format: Float32
@@ -13,7 +13,7 @@ All data will be stored in /home/runner/work/SpeedyWeatherFTLE.jl/SpeedyWeatherF
 
   5%, ETA: 0:00:02,   Inf millenia/day
  10%, ETA: 0:00:02,   Inf millenia/day
- 15%, ETA: 0:00:02,   Inf millenia/day
+ 15%, ETA: 0:00:01,   Inf millenia/day
  20%, ETA: 0:00:01,   Inf millenia/day
  25%, ETA: 0:00:01,   Inf millenia/day
  30%, ETA: 0:00:01,   Inf millenia/day
