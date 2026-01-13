@@ -1,6 +1,6 @@
 using LinearAlgebra
 
-Re = 6.371e6 # Average Earth radius in meters
+const Re = 6.371e6 # Average Earth radius in meters
 
 function displacement_gradient_matrix_central(plonds, platds, dist_km)
     """
@@ -19,7 +19,7 @@ function displacement_gradient_matrix_central(plonds, platds, dist_km)
 
     Ngpoints = length(plonds) ÷ 4 # Number of grid points
 
-    dfac = Re / dist_km / 2
+    dfac = Re / (dist_km * 1000) / 2
 
     cos_factor = cos.(deg2rad.(platds)) # Cos(latitude)
 
@@ -52,7 +52,7 @@ function FTLE_over_grid(B, T)
         T: time after particle release which B corresponds to
 
     Outputs: 
-        FTLE_grid: FTLE at each grid point. Units are 
+        FTLE_grid: FTLE at each grid point. Units are 1 / [T].
     """
 
     Ngpoints = size(B, 3) # Number of grid points
@@ -66,7 +66,7 @@ function FTLE_over_grid(B, T)
         CG = Bk' * Bk;
         # Largest eigenvalue
         lmax = maximum(eigvals(CG))
-        # FTLE - in units of days^-1
+        # FTLE - in units of 1 / [T]
         FTLE_grid[k] = log(lmax) / (2 * T)
     end
 
