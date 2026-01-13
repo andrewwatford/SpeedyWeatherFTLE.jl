@@ -23,4 +23,10 @@ Run the following code:
 - Visualization functions:
     - Globe function (with slider?)
     - Slider through time
-- Flesh out this TODO list :)
+- From Ambre's code:
+    - currently only supports 1-layer simulations
+    - add ability to prescribe velocity field
+    - Suppress output when advecting
+    - Would be nice to get output directly rather than write to then read from file. Cannot find how to do this in doc
+- Write nice docstrings for everything
+- General refactoring
