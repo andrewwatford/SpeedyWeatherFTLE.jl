@@ -20,4 +20,8 @@ Run the following code:
 - Publish this as a package so that it can be installed directly?
     - Make sure everyone is added as co-authors / maintainers in the .toml file
 - Make some adaptive documentation
+    - Make some documentation that runs the greet function
+    - Make some documentation that plots something in SpeedyWeather
+- Figure out what's going on with that PR
+- Get the documentation into this README next to the build status
 - Flesh out this TODO list :)
