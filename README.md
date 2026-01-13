@@ -26,6 +26,6 @@ Run the following code:
 - From Ambre's code:
     - currently only supports 1-layer simulations
     - Suppress output when advecting
-    - Would be nice to get output directly rather than write to then read from file. Cannot find how to do this in doc
+        - Or would be nice to get output directly rather than write to then read from file. Cannot find how to do this in doc
 - Write nice docstrings for everything
 - General refactoring
