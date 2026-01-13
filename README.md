@@ -19,9 +19,6 @@ Run the following code:
 
 ## TODOs:
 - Publish this as a package so that it can be installed directly?
-    - Make sure everyone is added as co-authors / maintainers in the .toml file
-- Make some adaptive documentation
-    - Make some documentation that runs the greet function
-    - Make some documentation that plots something in SpeedyWeather
+- Make some actual documentation
 - Figure out what's going on with that PR
 - Flesh out this TODO list :)

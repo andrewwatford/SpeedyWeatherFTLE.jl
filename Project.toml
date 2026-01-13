@@ -1,22 +1,28 @@
 name = "SpeedyWeatherFTLE"
 uuid = "b487dfcd-2a18-4dea-b622-756fb564dac9"
 version = "1.0.0-DEV"
-authors = ["Andrew Watford"]
-
-[deps]
-Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
-RingGrids = "d1845624-ad4f-453b-8ff4-a8db365bf3a7"
-SpeedyWeather = "9e226e20-d153-4fed-8a5b-493def4f21a9"
+authors = ["Andrew Watford <andrew.watford@dtc.ox.ac.uk>", "Ambre Brabant <ambre.brabant@univ.ox.ac.uk>", "Linus Miller <linus.miller@jesus.ox.ac.uk>", "Jessica Matthew <jessica.matthew@wadham.ox.ac.uk>"]
 
 [workspace]
 projects = ["docs"]
+
+[deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
+NCDatasets = "85f8d34a-cbdd-5861-8df4-14fed0d494ab"
+RingGrids = "d1845624-ad4f-453b-8ff4-a8db365bf3a7"
+SpeedyWeather = "9e226e20-d153-4fed-8a5b-493def4f21a9"
 
 [sources]
 RingGrids = {rev = "mk/lyapunov", subdir = "RingGrids", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"}
 SpeedyWeather = {rev = "mk/lyapunov", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"}
 
 [compat]
+CairoMakie = "0.15.8"
 Documenter = "1.16.1"
+GeoMakie = "0.7.16"
+NCDatasets = "0.14.10"
 RingGrids = "0.1.1"
 SpeedyWeather = "0.17.4"
 julia = "1.10.10"
