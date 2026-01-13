@@ -3,7 +3,8 @@
 In this example we plot the forwards-time finite-time Lyapunov exponents (FTLEs) using the default climatological initial conditions in SpeedyWeather. This is the default behaviour of our `lyapunov_FTLE` function.
 
 ```@example
-using SpeedyWeatherFTLE, RingGrids
+using SpeedyWeatherFTLE
+using RingGrids: Field
 pFTLE, grid, time_hours = lyapunov_FTLE()
 pFTLE_final = Field(pFTLE[:, end], grid)
 fig, ax, sp, cb = surface_plot(
@@ -17,7 +18,8 @@ fig
 We can also use random initial conditions:
 
 ```@example
-using SpeedyWeatherFTLE, RingGrids
+using SpeedyWeatherFTLE
+using RingGrids: Field
 pFTLE, grid, time_hours = lyapunov_FTLE(use_random=true, use_climatological=false)
 pFTLE_final = Field(pFTLE[:, end], grid)
 fig, ax, sp, cb = surface_plot(
@@ -30,7 +32,8 @@ fig
 
 And, finally, we can prescribe our own:
 ```@example
-using SpeedyWeatherFTLE, RingGrids
+using SpeedyWeatherFTLE
+using RingGrids: Field, FullGaussianGrid
 
 # Set up a random u and v field on a FullGaussianGrid
 u_data = 1000 * randn(Float64, 8, 4)
