@@ -1,4 +1,4 @@
-Starting SpeedyWeather.jl run_0001 on Tue, 13 Jan 2026 11:01:04
+Starting SpeedyWeather.jl run_0001 on Tue, 13 Jan 2026 11:45:46
 Integrating:
 SpectralGrid{Spectrum{...}, RingGrids.OctahedralGaussianGrid{...}}
 ├ Number format: Float32
