@@ -4,14 +4,16 @@ version = "1.0.0-DEV"
 authors = ["Andrew Watford"]
 
 [deps]
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
 RingGrids = "d1845624-ad4f-453b-8ff4-a8db365bf3a7"
 SpeedyWeather = "9e226e20-d153-4fed-8a5b-493def4f21a9"
 
 [sources]
-SpeedyWeather = { url = "https://github.com/SpeedyWeather/SpeedyWeather.jl", rev = "mk/lyapunov" }
-RingGrids     = { url = "https://github.com/SpeedyWeather/SpeedyWeather.jl", rev = "mk/lyapunov", subdir = "RingGrids" }
+RingGrids = {rev = "mk/lyapunov", subdir = "RingGrids", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"}
+SpeedyWeather = {rev = "mk/lyapunov", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"}
 
 [compat]
+Makie = "0.24.8"
 RingGrids = "0.1.1"
 SpeedyWeather = "0.17.4"
 julia = "1.10.10"
