@@ -77,7 +77,7 @@ SpeedyWeather.RandomVelocity{Float32} <: SpeedyWeather.AbstractInitialConditions
 ├ max_speed::Float32 = 60.0
 ├ truncation::Int64 = 15
 ├ seed::Int64 = 0
-└ random_number_generator::Random.Xoshiro = Random.Xoshiro(0xfe1290add694d2ba, 0x9fbfc2b8cbd569c9, 0x13271cd41ca5c143, 0x8dc960d9985b9487, 0xc371dfc7d16bd7af)
+└ random_number_generator::Random.Xoshiro = Random.Xoshiro(0x39adf06508fbb5d7, 0x0e353948e98d579b, 0x59c7cc34ad097f9d, 0x45d3bc90b5c99c31, 0x7b106ac527e7ce6a)
 
 model.random_process
 nothing
@@ -164,6 +164,6 @@ SpeedyWeather.Feedback <: AbstractFeedback
 ├ start::Int64 = 0
 ├ barlen::Nothing = nothing
 ├ barglyphs::ProgressMeter.BarGlyphs = ProgressMeter.BarGlyphs('|', '█', ['▏', '▎', '▍', '▌', '▋', '▊', '▉'], ' ', '|')
-└ core::ProgressMeter.ProgressCore = ProgressMeter.ProgressCore(:green, "Progress: ", 0.1, false, 0, IOContext(Base.PipeEndpoint(RawFD(-1) closed, 0 bytes waiting)), false, 1, 0, ReentrantLock(), 0, 1, false, 0, 1, 1.768314410564603e9, 1.768314410564603e9, 1.768314410564603e9)
+└ core::ProgressMeter.ProgressCore = ProgressMeter.ProgressCore(:green, "Progress: ", 0.1, false, 0, IOContext(Base.PipeEndpoint(RawFD(-1) closed, 0 bytes waiting)), false, 1, 0, ReentrantLock(), 0, 1, false, 0, 1, 1.768315357974321e9, 1.768315357974321e9, 1.768315357974321e9)
 └ nans_detected::Bool = false
 
