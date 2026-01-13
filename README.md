@@ -20,5 +20,4 @@ Run the following code:
 ## TODOs:
 - Publish this as a package so that it can be installed directly?
 - Make some actual documentation
-- Figure out what's going on with that PR
 - Flesh out this TODO list :)
