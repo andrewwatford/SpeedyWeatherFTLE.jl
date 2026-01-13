@@ -1,16 +1,16 @@
 using GeoMakie, CairoMakie
+using SpeedyWeather
+using SpeedyWeatherFTLE
 
 @testset "surface_plot.jl" begin
-    lons = -180:180
-    lats = -90:90
-    field = [exp(cosd(l)) + 3(y/90) for l in lons, y in lats]
+    # Create a mock Field
+    grid = HEALPixGrid(20)
+    field = rand(grid)
     title = "Test Surface Plot"
     label = "Field Value"
     for coastlines in (true, false)
         for colorbar in (true, false)
             fig, ax, sp, cb = surface_plot(
-                lons,
-                lats,
                 field;
                 title = title,
                 coastlines = coastlines,
