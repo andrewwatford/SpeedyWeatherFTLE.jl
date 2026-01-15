@@ -28,5 +28,7 @@ Run the following code:
 - Or would be nice to get output directly rather than write to then read from file. Cannot find how to do this in doc
 - Modify functions to return ncdf filepath? output velocity fields if they are evolving?
 - Can we compute the FTLE given a timeseries of u, v as opposed to solving the equations for them?
+- Find a better method for inferring ntrunc from given spatial grid
 - Write nice docstrings for everything
 - General refactoring
+- Add these as issues on github

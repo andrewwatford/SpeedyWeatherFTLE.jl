@@ -1,15 +1,15 @@
 using SpeedyWeather, RingGrids
-using GeoMakie, CairoMakie
+using GeoMakie, GLMakie
 
 function surface_plot(
     field::Field;
     lon::Vector=Vector(-180:180),
     lat::Vector=Vector(-90:90),
     shading=NoShading, 
-    title::String=nothing,
+    title=nothing,
     colormap=:viridis,
     colorbar::Bool=true,
-    label::String=nothing, 
+    label=nothing, 
     coastlines::Bool=true,
     )
     """
@@ -20,10 +20,10 @@ function surface_plot(
     - `lon::Vector`: Longitudes of the points to interpolate onto.
     - `lat::Vector`: Latitudes of the points to interpolate onto.
     - `shading`: Shading option for the surface plot (default: `NoShading`).
-    - `title::String`: Title of the plot. (default: `nothing`).
+    - `title`: Title of the plot. (default: `nothing`).
     - `colormap`: Colormap to use for the surface plot. (default: `:viridis`).
     - `colorbar::Bool`: Whether to include a colorbar in the plot. (default: `true`).
-    - `label::String`: Label for the colorbar. (default: `nothing`).
+    - `label`: Label for the colorbar. (default: `nothing`).
     - `coastlines::Bool`: Whether to add coastlines to the plot. (default: `true`).
 
     # Returns
@@ -36,13 +36,21 @@ function surface_plot(
     lat_vec = vec([la for lo in lon, la in lat])
     field_data = interpolate(lon_vec, lat_vec, field)
     fig = Figure()
-    ax = GeoAxis(fig[1,1]; title=title)
+    if title !== nothing
+        ax = GeoAxis(fig[1,1]; title=title)
+    else
+        ax = GeoAxis(fig[1,1])
+    end
     sp = surface!(ax, lon_vec, lat_vec, field_data; shading=shading, colormap=colormap)
     if coastlines
         lines!(ax, GeoMakie.coastlines(), color=:black)
     end
     if colorbar
-        cb = Colorbar(fig[1, 2], sp; label=label, height=Relative(0.7))
+        if label === nothing
+            cb = Colorbar(fig[1, 2], sp; height=Relative(0.7))
+        else
+            cb = Colorbar(fig[1, 2], sp; label=label, height=Relative(0.7))
+        end
     else
         cb = nothing
     end
