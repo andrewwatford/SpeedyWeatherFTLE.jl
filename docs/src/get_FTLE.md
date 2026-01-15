@@ -4,8 +4,6 @@ In this example we show how to plot the positive- and negative-time Lyapunov exp
 
 ```@example ftle
 using SpeedyWeatherFTLE, RingGrids
-using Random
-Random.seed!(1234)
 
 nlat_half = 20
 spatial_grid = FullGaussianGrid(nlat_half)
