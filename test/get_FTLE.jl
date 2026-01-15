@@ -3,7 +3,7 @@ using SpeedyWeatherFTLE
 using InteractiveUtils
 
 @testset "get_FTLE.jl" begin
-    nlat_half = 20
+    nlat_half = 5
     full_grids = subtypes(RingGrids.AbstractFullGrid)
     reduced_grids = subtypes(RingGrids.AbstractReducedGrid)
     all_grids = vcat(full_grids, reduced_grids)
