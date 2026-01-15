@@ -3,3 +3,4 @@ using Test
 
 include("visualization/surface_plot.jl")
 include("get_FTLE.jl")
+include("visualization/slider_plot.jl")
