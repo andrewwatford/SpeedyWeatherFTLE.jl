@@ -1,4 +1,4 @@
-using GeoMakie, CairoMakie
+using GeoMakie, GLMakie
 using SpeedyWeather
 using SpeedyWeatherFTLE
 
