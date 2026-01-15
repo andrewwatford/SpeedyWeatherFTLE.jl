@@ -7,8 +7,8 @@ authors = ["Andrew Watford <andrew.watford@dtc.ox.ac.uk>", "Ambre Brabant <ambre
 projects = ["docs"]
 
 [deps]
-CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6"
 InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -21,8 +21,8 @@ RingGrids = {rev = "mk/lyapunov", subdir = "RingGrids", url = "https://github.co
 SpeedyWeather = {rev = "mk/lyapunov", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"}
 
 [compat]
-CairoMakie = "0.15.8"
 Documenter = "1.16.1"
+GLMakie = "0.13.8"
 GeoMakie = "0.7.16"
 InteractiveUtils = "1.11.0"
 LinearAlgebra = "1.12.0"
