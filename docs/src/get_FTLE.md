@@ -22,7 +22,9 @@ p_fig, p_ax, p_sp, p_cb = surface_plot(
     label = "pFTLE [1/h]",
 )
 p_fig
+```
 
+```@example
 n_fig, n_ax, n_sp, n_cb = surface_plot(
     nFTLE_final;
     title = "nFTLE field at -$(n_time_hours[end]) hours",
