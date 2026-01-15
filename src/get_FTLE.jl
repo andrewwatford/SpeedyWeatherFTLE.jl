@@ -29,36 +29,27 @@ function perturb_positions_FTLE(particles, londs, latds, dist_km)
     particles[4:4:end] .= [Particle(londs[i], latds[i] - del_lat) for i in 1:Npoints]
 end
 
-function lyapunov_FTLE(; 
-    simulation_days=10, 
-    dist_km=10, 
-    backwards=false, 
-    dynamics=false, 
-    model_type=BarotropicModel, 
-    trunc::Int=31,
-    spatial_grid_type=HEALPixGrid, 
-    use_climatological=true,
-    use_random=false,
-    zonal_velocity_field::Field=zeros(HEALPixGrid(2)),
-    meridional_velocity_field::Field=zeros(HEALPixGrid(2)),
-    rint_hours=3
-    )
+function get_FTLE(
+    u::Field, 
+    v::Field;
+    simulation_days=10,
+    dist_km=10,
+    backwards=false,
+    dynamics=false,
+    rint_hours=3,
+    model_type=BarotropicModel
+)
     """
     TODO docstring is temporary
-    Runs simulation with particle tracking and calculates the Finite-Time Lyapunov Exponent (FTLE).
+    Calculates the Finite-Time Lyapunov Exponent (FTLE) for a given velocity field.
     
     Inputs:
+        u: Field representing the zonal velocity field
+        v: Field representing the meridional velocity field
         simulation_days: number of days to run the simulation for
-        dist_km: initial perturbation in km
+        dist_km: initial perturbation for released particles in km
         backwards: if true, run simulation backwards in time
         dynamics: if false, disables SpeedyWeather dynamics (makes velocity field static)
-        model_type: model type. Currently only one-layer models are supported
-        trunc: spectral truncation for the spectral grid
-        spatial_grid_type: spatial grid type to use (e.g., HEALPixGrid, FullGaussianGrid)
-        use_climatological: if true, use a fixed climatological velocity field
-        use_random: if true, use a random velocity field
-        zonal_velocity_field: Field representing the zonal velocity field (used if neither use_random nor use_climatological is true)
-        meridional_velocity_field: Field representing the meridional velocity field (used if neither use_random nor use_climatological is true)
         rint_hours: sampling time for recording the positions of particles
 
     Outputs:
@@ -66,47 +57,50 @@ function lyapunov_FTLE(;
         grid: grid object, that can tell you how indices in the first dimension of FTLE_grid_time map to a position on the sphere
         time_hours: Mx1 Vector{Float64}. Sampling times in hours
     """
-    if use_random && use_climatological
-        error("Cannot use both random and climatological velocity fields")
-    end
 
-    ### Setup simulation ###
-    # Setup a default grid with 4 particles per grid cell
-    spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, Grid=spatial_grid_type)
-    nparticles = 4*spectral_grid.npoints
-    spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, nparticles=nparticles, Grid=spatial_grid_type)
+    # Setup the spectral grid based on the input velocity fields
+    if u.grid != v.grid
+        error("Velocity fields u and v must be defined on the same grid")
+    end
+    spatial_grid = u.grid
+    spatial_grid_type = typeof(spatial_grid)
+    # Since we do not give the user the ability to control dealiasing or truncation,
+        # we use the default dealiasing of 2 and set truncation accordingly
+    J = length(spatial_grid.rings)
+    # Guess truncation from number of latitudinal rings
+    T_lower = convert(Int, floor(2 * J / 3))
+    T_upper = convert(Int, ceil(2 * J / 3))
+    sg_lower = SpectralGrid(nlayers=1, trunc=T_lower, Grid=spatial_grid_type)
+    sg_upper = SpectralGrid(nlayers=1, trunc=T_upper, Grid=spatial_grid_type)
+    if spatial_grid == sg_lower.grid
+        trunc = T_lower
+    elseif spatial_grid == sg_upper.grid
+        trunc = T_upper
+    else
+        error("Could not determine spectral truncation from provided grid")
+    end
+    temp_spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, Grid=spatial_grid_type)
+    n_particles = 4*temp_spectral_grid.npoints
+    spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, nparticles=n_particles, Grid=spatial_grid_type)
 
     # Set up particle advection scheme, model, and simulation
     particle_advection = ParticleAdvection2D(spectral_grid, backwards=backwards)
-    model = model_type(spectral_grid, dynamics=dynamics; particle_advection)
+    if model_type != BarotropicModel
+        @warn "get_FTLE currently only tested with BarotropicModel. Unexpected behaviour may occur."
+    end
+    model = model_type(spectral_grid, dynamics=dynamics; particle_advection=particle_advection)
     simulation = initialize!(model)
 
     # Apply prescribed velocity field
-    if use_climatological
-        # Set fixed velocity field to initial conditions of simulation
-        # TODO don't understand the four lines of code below (they are from Milan)
-        progn, diagn, model = SpeedyWeather.unpack(simulation)
-        SpeedyWeather.scale!(progn, diagn, model.planet.radius)
-        lf = 1
-        transform!(diagn, progn, lf, model)
-    elseif use_random
-        u = randn(spectral_grid.grid)
-        v = randn(spectral_grid.grid)
-        simulation.diagnostic_variables.grid.u_grid .= u
-        simulation.diagnostic_variables.grid.v_grid .= v
-    else
-        u_field = interpolate(spectral_grid.grid, zonal_velocity_field)
-        v_field = interpolate(spectral_grid.grid, meridional_velocity_field)
-        simulation.diagnostic_variables.grid.u_grid .= u_field
-        simulation.diagnostic_variables.grid.v_grid .= v_field
-    end
+    simulation.diagnostic_variables.grid.u_grid .= u
+    simulation.diagnostic_variables.grid.v_grid .= v
 
     # Add particle tracker to the model
     particle_tracker = ParticleTracker(spectral_grid, schedule=Schedule(every=Hour(rint_hours)))
     add!(model, :particle_tracker => particle_tracker)
 
     ### Perturb initial locations of particles ###
-    londs, latds = RingGrids.get_londlatds(spectral_grid.grid)
+    londs, latds = RingGrids.get_londlatds(spatial_grid)
     (; particles) = simulation.prognostic_variables
     perturb_positions_FTLE(particles, londs, latds, dist_km)
 
@@ -144,9 +138,9 @@ function lyapunov_FTLE(;
     close(particles_ds)
     rm(path) # Remove temporary netCDF file
 
-    return FTLE_grid_time, spectral_grid.grid, time_hours
+    return FTLE_grid_time, spectral_grid, time_hours
 
 end
 
-export lyapunov_FTLE
+export get_FTLE
 export Re

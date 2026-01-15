@@ -23,9 +23,10 @@ Run the following code:
 - Visualization functions:
     - Globe function (with slider?)
     - Slider through time
-- From Ambre's code:
-    - currently only supports 1-layer simulations
-    - Suppress output when advecting
-        - Or would be nice to get output directly rather than write to then read from file. Cannot find how to do this in doc
+- currently only supports 1-layer simulations
+- Suppress output when advecting
+- Or would be nice to get output directly rather than write to then read from file. Cannot find how to do this in doc
+- Modify functions to return ncdf filepath? output velocity fields if they are evolving?
+- Can we compute the FTLE given a timeseries of u, v as opposed to solving the equations for them?
 - Write nice docstrings for everything
 - General refactoring
