@@ -2,11 +2,11 @@ module SpeedyWeatherFTLE
 
 include("mock/greet.jl")
 include("visualization/surface_plot.jl")
-include("lyapunov_FTLE.jl")
+include("get_FTLE.jl")
 
 export greet
 export surface_plot
-export lyapunov_FTLE
+export get_FTLE
 export Re
 
 end
