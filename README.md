@@ -22,7 +22,6 @@ Run the following code:
 - Make some actual documentation
 - Visualization functions:
     - Globe function (with slider?)
-    - Slider through time
 - currently only supports 1-layer simulations
 - Suppress output when advecting
 - Or would be nice to get output directly rather than write to then read from file. Cannot find how to do this in doc
