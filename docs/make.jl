@@ -1,3 +1,4 @@
+using CairoMakie
 using Documenter
 using SpeedyWeatherFTLE
 
@@ -7,6 +8,7 @@ makedocs(
     pages = [
         "Home" => "index.md",
     ],
+    format = Documenter.HTML(prettyurls = true),
 )
 
 deploydocs(

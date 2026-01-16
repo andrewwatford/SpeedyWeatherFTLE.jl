@@ -1,7 +1,3 @@
-using SpeedyWeather, RingGrids, NCDatasets
-
-include("./FTLE_computations.jl")
-
 function perturb_positions_FTLE(particles, londs, latds, dist_km)
     """
     Sets up the initial positions of particles for calculating the FTLE

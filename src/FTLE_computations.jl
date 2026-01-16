@@ -1,7 +1,3 @@
-using LinearAlgebra
-
-const Re = 6.371e6 # Average Earth radius in meters
-
 function displacement_gradient_matrix_central(plonds, platds, dist_km)
     """
     Compute the displacement gradient matrix given particle positions at a fixed time

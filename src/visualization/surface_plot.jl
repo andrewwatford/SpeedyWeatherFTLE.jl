@@ -1,6 +1,3 @@
-using SpeedyWeather, RingGrids
-using GeoMakie, GLMakie
-
 function surface_plot(
     field::Field;
     lon::Vector=Vector(-180:180),

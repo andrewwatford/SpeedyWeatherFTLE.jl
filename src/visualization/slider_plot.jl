@@ -1,6 +1,3 @@
-using SpeedyWeather, RingGrids
-using GeoMakie, GLMakie
-
 function slider_plot(
     times::Vector{Float64},
     field_ts::Field;
