@@ -2,20 +2,21 @@ using GeoMakie, Makie
 using SpeedyWeather
 using SpeedyWeatherFTLE
 
-@testset "surface_plot.jl" begin
+@testset "slider_plot.jl" begin
     # Create a mock Field
     grid = HEALPixGrid(20)
-    field = rand(grid)
-    title = "Test Surface Plot"
+    field_ts = rand(grid, 5)  # Assuming a time series with 5 time steps
+    title = "Test Slider Plot"
     label = "Field Value"
     for coastlines in (true, false)
         for colorbar in (true, false)
-            fig, ax, sp, cb = surface_plot(
-                field;
+            fig, ax, sp, cb = slider_plot(
+                Vector{Float64}(1:5),
+                field_ts,;
                 title = title,
                 coastlines = coastlines,
                 colorbar = colorbar,
-                label = label,
+                colorbar_label = label,
             )
             @test isa(fig, Figure)
             @test isa(ax, GeoAxis)

@@ -1,7 +1,6 @@
 using SpeedyWeatherFTLE
 using Test
 
-include("mock/greet.jl")
-include("dynamics/particle_advection.jl")
 include("visualization/surface_plot.jl")
 include("get_FTLE.jl")
+include("visualization/slider_plot.jl")
