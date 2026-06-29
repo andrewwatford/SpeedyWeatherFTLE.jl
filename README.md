@@ -16,19 +16,3 @@ Run the following code:
 ```julia
 ]test
 ```
-
-## TODOs:
-- Publish this as a package so that it can be installed directly?
-- Make some actual documentation
-- Visualization functions:
-    - Globe function (with slider?)
-- currently only supports 1-layer simulations
-- Suppress output when advecting
-- Or would be nice to get output directly rather than write to then read from file. Cannot find how to do this in doc
-- Modify functions to return ncdf filepath? output velocity fields if they are evolving?
-- Can we compute the FTLE given a timeseries of u, v as opposed to solving the equations for them?
-- Find a better method for inferring ntrunc from given spatial grid
-- Write nice docstrings for everything
-- General refactoring
-- Add these as issues on github
-- Bug: using GLMakie as backend, surface_plot does not plot the coastlines. However, using CairoMakie as backend it does.
