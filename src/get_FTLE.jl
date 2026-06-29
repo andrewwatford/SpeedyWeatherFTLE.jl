@@ -76,28 +76,27 @@ function get_FTLE(
         error("Could not determine spectral truncation from provided grid")
     end
     temp_spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, Grid=spatial_grid_type)
-    n_particles = 4*temp_spectral_grid.npoints
-    spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, nparticles=n_particles, Grid=spatial_grid_type)
+    n_particles = 4 * temp_spectral_grid.npoints
+    spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, Grid=spatial_grid_type)
 
     # Set up particle advection scheme, model, and simulation
-    particle_advection = ParticleAdvection2D(spectral_grid, backwards=backwards)
+    particle_advection = ParticleAdvection2D(spectral_grid; nparticles=n_particles, backwards=backwards)
     if model_type != BarotropicModel
         @warn "get_FTLE currently only tested with BarotropicModel. Unexpected behaviour may occur."
     end
-    model = model_type(spectral_grid, dynamics=dynamics; particle_advection=particle_advection)
+    model = model_type(spectral_grid; dynamics=dynamics, particle_advection=particle_advection)
     simulation = initialize!(model)
 
     # Apply prescribed velocity field
-    simulation.diagnostic_variables.grid.u_grid .= u
-    simulation.diagnostic_variables.grid.v_grid .= v
+    simulation.variables.grid.u[:, 1, 1] .= u
+    simulation.variables.grid.v[:, 1, 1] .= v
 
-    # Add particle tracker to the model
-    particle_tracker = ParticleTracker(spectral_grid, schedule=Schedule(every=Hour(rint_hours)))
-    add!(model, :particle_tracker => particle_tracker)
+    particle_tracker = ParticleTracker(spectral_grid; schedule=Schedule(every=Hour(rint_hours)))
+    model.callbacks[:particle_tracker] = particle_tracker
 
     ### Perturb initial locations of particles ###
     londs, latds = RingGrids.get_londlatds(spatial_grid)
-    (; particles) = simulation.prognostic_variables
+    (; particles) = simulation.variables.prognostic
     perturb_positions_FTLE(particles, londs, latds, dist_km)
 
     ### Run ###
@@ -106,7 +105,7 @@ function get_FTLE(
     ### Calculate time-dependent FTLE ###
 
     # Read in particle positions over time
-    path = joinpath(model.output.run_folder, particle_tracker.filename) # Path to netCDF file
+    path = joinpath(model.output.run_path, particle_tracker.filename) # Path to netCDF file
     particles_ds = NCDataset(path,"r")
 
     # Time dimension
