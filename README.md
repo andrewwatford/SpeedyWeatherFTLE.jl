@@ -31,3 +31,4 @@ Run the following code:
 - Write nice docstrings for everything
 - General refactoring
 - Add these as issues on github
+- Bug: using GLMakie as backend, surface_plot does not plot the coastlines. However, using CairoMakie as backend it does.
