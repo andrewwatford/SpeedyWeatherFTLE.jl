@@ -99,8 +99,10 @@ function get_FTLE(
     (; particles) = simulation.variables.prognostic
     perturb_positions_FTLE(particles, londs, latds, dist_km)
 
-    ### Run ###
-    run!(simulation, period=Day(simulation_days))
+    ### Run with noisy logging suppressed ###
+    with_logger(ConsoleLogger(stderr, Logging.Warn)) do
+        run!(simulation, period=Day(simulation_days), output=false)
+    end
 
     ### Calculate time-dependent FTLE ###
 

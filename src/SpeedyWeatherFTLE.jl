@@ -4,6 +4,7 @@ using SpeedyWeather, RingGrids
 using GeoMakie, Makie
 using LinearAlgebra
 using NCDatasets
+using Logging
 
 const Re = 6.371e6 # Average Earth radius in meters
 
