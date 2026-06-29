@@ -40,7 +40,7 @@ function surface_plot(
     end
     sp = surface!(ax, lon_vec, lat_vec, field_data; shading=shading, colormap=colormap)
     if coastlines
-        lines!(ax, GeoMakie.coastlines(), color=:black)
+        lines!(ax, GeoMakie.coastlines(), color=:black, overdraw=true)
     end
     if colorbar
         if label === nothing
