@@ -1,43 +1,107 @@
 # SpeedyWeatherFTLE
 
-Documentation for `SpeedyWeatherFTLE`.
+SpeedyWeatherFTLE computes finite-time Lyapunov exponents (FTLEs) from
+SpeedyWeather particle trajectories. The package can run a particle-tracking
+simulation from prescribed velocity fields, compute positive- or negative-time
+FTLE, reuse saved `ParticleTracker` NetCDF files, and convert FTLE arrays into
+`RingGrids.Field` objects for plotting.
 
-## Plotting the Finite-Time Lyapunov Exponent (FTLE)
+## What You Usually Need
 
-Here we show how to obtain the positive- and negative-time Lyapunov exponents (FTLEs) using SpeedyWeatherFTLE's get_FTLE function and to plot them using the surface_plot and slider_plot functions.
+Most workflows start with [`positive_FTLE`](@ref) or [`negative_FTLE`](@ref).
+Pass zonal and meridional velocity fields on the same `RingGrids` grid and ask
+for an [`FTLEResult`](@ref) when you want named fields plus metadata for
+plotting and post-processing.
 
-```@example ftle
+```@example quickstart
 using CairoMakie
-using SpeedyWeatherFTLE, RingGrids
+using Random
+using RingGrids
+using SpeedyWeatherFTLE
 
-nlat_half = 20
-spatial_grid = FullGaussianGrid(nlat_half)
-u = 100 * rand(spatial_grid)
-v = 100 * rand(spatial_grid)
+Random.seed!(42)
 
-# using dynamics = true evolves the velocity fields, backwards = false for positive-time FTLE
-pFTLE, p_spectral_grid, p_time_hours = get_FTLE(u, v; dynamics=true, backwards=false) 
-pFTLE_field = Field(pFTLE, spatial_grid)
-pFTLE_final = pFTLE_field[:,end]
+spatial_grid = FullGaussianGrid(8)
+u = 25 * rand(spatial_grid)
+v = 25 * rand(spatial_grid)
 
-p_fig, p_ax, p_sp, p_cb = surface_plot(
-    pFTLE_final;
-    title = "pFTLE field at $(p_time_hours[end]) hours",
-    label = "pFTLE [1/h]",
+result = positive_FTLE(
+    u,
+    v;
+    simulation_days = 1,
+    dynamics = false,
+    rint_hours = 6,
+    return_result = true,
+    time_indices = :nonzero,
 )
 
-p_fig
+size(result)
 ```
 
-We can also create a slider plot of the whole time-series. (The slider is not interactive in the docs, but using GLMakie locally it is interactive.)
+The result stores the selected FTLE time series, the SpeedyWeather spectral grid,
+the selected output times in hours, and run metadata:
 
-```@example ftle
-fig, ax, sp, cb = slider_plot(
-                p_time_hours[10:end],
-                pFTLE_field[:,10:end]; # remove noisy initial data
-                title = "pFTLE field",
-                colorbar_label = "pFTLE [1/h]",
-            )
+```@example quickstart
+result.direction, result.time_hours, result.dist_km
+```
+
+To plot the final selected output time, pass the result directly to
+[`surface_plot`](@ref).
+
+```@example quickstart
+fig, ax, sp, cb = surface_plot(
+    result;
+    title = "Positive-time FTLE after $(result.time_hours[end]) hours",
+    label = "FTLE [1/h]",
+)
 
 fig
+```
+
+For an interactive local time-series plot, use [`slider_plot`](@ref). In the
+static documentation build the slider is rendered but not interactive; with
+GLMakie locally it is interactive.
+
+```@example quickstart
+fig, ax, sp, cb = slider_plot(
+    result;
+    title = "Positive-time FTLE",
+    colorbar_label = "FTLE [1/h]",
+)
+
+fig
+```
+
+## Guide
+
+- [Concepts and Data Layout](concepts.md): FTLE direction, units, particle
+  layout, and `time_indices`.
+- [Running Simulations](simulation.md): high-level simulation workflows with
+  [`get_FTLE`](@ref), [`positive_FTLE`](@ref), and [`negative_FTLE`](@ref).
+- [Particle Files](particle_files.md): saving and reusing SpeedyWeather
+  `ParticleTracker` NetCDF output.
+- [Plotting](plotting.md): converting arrays to fields and using
+  [`surface_plot`](@ref), [`slider_plot`](@ref), [`animate_slider_plot`](@ref),
+  and [`globe_plot`](@ref).
+- [API Reference](api.md): generated reference documentation for exported
+  functions and types.
+
+## Development
+
+From the repository root, instantiate the project once:
+
+```julia
+] instantiate
+```
+
+Run the package tests with:
+
+```julia
+] test
+```
+
+Build these docs locally with:
+
+```bash
+julia --project=docs docs/make.jl
 ```
