@@ -21,12 +21,30 @@ SpeedyTransforms = "ed023a3f-7a3c-42dd-bab6-68c21c8c3105"
 SpeedyWeather = "9e226e20-d153-4fed-8a5b-493def4f21a9"
 SpeedyWeatherInternals = "34489162-d270-4603-8b96-37b04f830d73"
 
-[sources]
-LowerTriangularArrays = {rev = "mk/lyapunov2", subdir = "LowerTriangularArrays", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"}
-RingGrids = {rev = "mk/lyapunov2", subdir = "RingGrids", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"}
-SpeedyTransforms = {rev = "mk/lyapunov2", subdir = "SpeedyTransforms", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"}
-SpeedyWeather = {rev = "mk/lyapunov2", subdir = "SpeedyWeather", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"}
-SpeedyWeatherInternals = {rev = "mk/lyapunov2", subdir = "SpeedyWeatherInternals", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"}
+[sources.LowerTriangularArrays]
+rev = "mk/lyapunov2"
+subdir = "LowerTriangularArrays"
+url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"
+
+[sources.RingGrids]
+rev = "mk/lyapunov2"
+subdir = "RingGrids"
+url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"
+
+[sources.SpeedyTransforms]
+rev = "mk/lyapunov2"
+subdir = "SpeedyTransforms"
+url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"
+
+[sources.SpeedyWeather]
+rev = "mk/lyapunov2"
+subdir = "SpeedyWeather"
+url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"
+
+[sources.SpeedyWeatherInternals]
+rev = "mk/lyapunov2"
+subdir = "SpeedyWeatherInternals"
+url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"
 
 [compat]
 CairoMakie = "0.15.12"
@@ -37,6 +55,7 @@ LinearAlgebra = "1.12.0"
 Logging = "1.11.0"
 Makie = "0.24.8"
 NCDatasets = "0.14.10"
+SpeedyWeatherInternals = "0.2"
 julia = "1.10.10"
 
 [extras]
