@@ -6,16 +6,34 @@ using LinearAlgebra
 using NCDatasets
 using Logging
 
+"""
+    Re
+
+Average Earth radius used by SpeedyWeatherFTLE, in metres.
+"""
 const Re = 6.371e6 # Average Earth radius in meters
 
+include("grid_helpers.jl")
 include("./FTLE_computations.jl")
+include("visualization/ftle_field.jl")
+include("FTLE_result.jl")
 include("visualization/surface_plot.jl")
 include("visualization/slider_plot.jl")
 include("get_FTLE.jl")
 
+export FTLEResult
+export final_ftle
+export final_ftle_field
+export ftle_field
+export FTLE_from_particles!
+export FTLE_from_particles
+export FTLE_from_particle_file!
+export FTLE_from_particle_file
 export surface_plot
 export slider_plot
 export get_FTLE
+export positive_FTLE
+export negative_FTLE
 export Re
 
 end

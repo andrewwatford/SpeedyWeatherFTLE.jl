@@ -11,20 +11,73 @@ function perturb_positions_FTLE(particles, londs, latds, dist_km)
     """
 
     Npoints = length(londs) # Number of grid points
-
-    cos_factor = cos.(deg2rad.(latds)) # Cos(latitude)
+    length(latds) == Npoints || throw(DimensionMismatch("londs and latds must have the same length"))
+    length(particles) == 4 * Npoints || throw(DimensionMismatch("particles must contain four particles per grid point"))
 
     del_lat = rad2deg((dist_km * 1000 / Re)) # Latitude perturbation in degrees
 
-    # Perturbed East/West
-    particles[1:4:end] .= [Particle(londs[i] + del_lat/cos_factor[i], latds[i]) for i in 1:Npoints]
-    particles[2:4:end] .= [Particle(londs[i] - del_lat/cos_factor[i], latds[i]) for i in 1:Npoints]
+    @inbounds for i in 1:Npoints
+        p = 4i
+        del_lon = del_lat / cosd(latds[i])
 
-    # Perturbed North/South
-    particles[3:4:end] .= [Particle(londs[i], latds[i] + del_lat) for i in 1:Npoints]
-    particles[4:4:end] .= [Particle(londs[i], latds[i] - del_lat) for i in 1:Npoints]
+        # Perturbed East/West
+        particles[p - 3] = Particle(londs[i] + del_lon, latds[i])
+        particles[p - 2] = Particle(londs[i] - del_lon, latds[i])
+
+        # Perturbed North/South
+        particles[p - 1] = Particle(londs[i], latds[i] + del_lat)
+        particles[p] = Particle(londs[i], latds[i] - del_lat)
+    end
 end
 
+"""
+    get_FTLE(u::Field, v::Field; kwargs...)
+
+Run a SpeedyWeather particle-tracking simulation from prescribed zonal and
+meridional velocity fields, then compute finite-time Lyapunov exponents from
+the tracked particle trajectories.
+
+`u` and `v` must be `RingGrids.Field` objects on the same grid. Four particles
+are released around each grid point with initial separation `dist_km`, the
+trajectories are written by SpeedyWeather's `ParticleTracker`, and the saved
+particle positions are post-processed with [`FTLE_from_particle_file`](@ref).
+
+# Main Keyword Arguments
+
+- `simulation_days = 10`: simulation duration in days.
+- `dist_km = 10`: particle perturbation distance in kilometres.
+- `backwards = false`: run backward in time for negative-time FTLE.
+- `dynamics = false`: keep the prescribed velocity field static when `false`.
+- `rint_hours = 3`: particle output cadence in hours.
+- `model_type = BarotropicModel`: SpeedyWeather model type.
+- `particle_advection_every_n_time_steps = 6`: particle advection cadence.
+- `particle_tracker_keepbits = 15`: mantissa bits retained in NetCDF output.
+- `particle_tracker_compression_level = 1`: NetCDF compression level, from `0`
+  to `9`.
+- `particle_tracker_shuffle = false`: enable the NetCDF shuffle filter.
+- `particle_tracker_path = ""`: directory for the particle file.
+- `particle_tracker_filename = "particles.nc"`: particle file name.
+- `keep_particle_file = false`: keep the particle file after FTLE computation.
+- `return_particle_file_path = false`: return the particle file path and keep
+  the file.
+- `return_result = false`: return an [`FTLEResult`](@ref) instead of a tuple.
+- `time_indices = :`: particle-tracker output columns to post-process.
+
+Supported `time_indices` values are `:`, `:all`, `:first`, `:last`, `:final`,
+`:nonzero`, `:positive`, an integer index, integer-index iterables, or a boolean
+mask.
+
+# Returns
+
+By default, returns `FTLE_grid_time, spectral_grid, time_hours`.
+
+When `return_particle_file_path = true`, returns
+`FTLE_grid_time, spectral_grid, time_hours, particle_file_path` and keeps the
+particle file.
+
+When `return_result = true`, returns an [`FTLEResult`](@ref) with the same data
+and run metadata.
+"""
 function get_FTLE(
     u::Field, 
     v::Field;
@@ -33,10 +86,19 @@ function get_FTLE(
     backwards=false,
     dynamics=false,
     rint_hours=3,
-    model_type=BarotropicModel
+    model_type=BarotropicModel,
+    particle_advection_every_n_time_steps=6,
+    particle_tracker_keepbits=15,
+    particle_tracker_compression_level=1,
+    particle_tracker_shuffle=false,
+    particle_tracker_path="",
+    particle_tracker_filename="particles.nc",
+    keep_particle_file=false,
+    return_particle_file_path=false,
+    return_result=false,
+    time_indices=Colon(),
 )
     """
-    TODO docstring is temporary
     Calculates the Finite-Time Lyapunov Exponent (FTLE) for a given velocity field.
     
     Inputs:
@@ -47,17 +109,39 @@ function get_FTLE(
         backwards: if true, run simulation backwards in time
         dynamics: if false, disables SpeedyWeather dynamics (makes velocity field static)
         rint_hours: sampling time for recording the positions of particles
+        particle_advection_every_n_time_steps: advect particles every n model timesteps
+        particle_tracker_keepbits: mantissa bits retained when particle positions are written to netCDF
+        particle_tracker_compression_level: netCDF compression level for particle trajectories
+        particle_tracker_shuffle: whether to use the netCDF shuffle filter for particle trajectories
+        particle_tracker_path: directory for the temporary particle-tracker NetCDF file
+        particle_tracker_filename: file name for the particle-tracker NetCDF file
+        keep_particle_file: if true, do not delete the particle-tracker NetCDF file after computing FTLE
+        return_particle_file_path: if true, also return the particle-tracker NetCDF path and keep the file
+        return_result: if true, return an FTLEResult with named fields and metadata
+        time_indices: optional particle-tracker time columns to post-process.
+            Supports `:`, `:all`, `:first`, `:last`/`:final`,
+            `:nonzero`/`:positive`, integer indices, integer-index iterables,
+            and boolean masks.
 
     Outputs:
         FTLE_grid_time: NxM Matrix{Float64} . FTLE in units of 1/hour. N is number of grid points (spatial positions), M is number of time samples
         grid: grid object, that can tell you how indices in the first dimension of FTLE_grid_time map to a position on the sphere
-        time_hours: Mx1 Vector{Float64}. Sampling times in hours
+        time_hours: Mx1 Vector{Float64}. Selected sampling times in hours
+        particle_file_path: returned as a fourth value only when return_particle_file_path is true
+        FTLEResult: returned instead of the tuple when return_result is true
     """
 
     # Setup the spectral grid based on the input velocity fields
     if u.grid != v.grid
         error("Velocity fields u and v must be defined on the same grid")
     end
+    dist_km > 0 || throw(ArgumentError("dist_km must be positive"))
+    particle_advection_every_n_time_steps >= 1 || throw(ArgumentError("particle_advection_every_n_time_steps must be at least 1"))
+    rint_hours > 0 || throw(ArgumentError("rint_hours must be positive"))
+    particle_tracker_keepbits >= 1 || throw(ArgumentError("particle_tracker_keepbits must be positive"))
+    0 <= particle_tracker_compression_level <= 9 ||
+        throw(ArgumentError("particle_tracker_compression_level must be between 0 and 9"))
+
     spatial_grid = u.grid
     spatial_grid_type = typeof(spatial_grid)
     # Since we do not give the user the ability to control dealiasing or truncation,
@@ -80,14 +164,31 @@ function get_FTLE(
     spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, Grid=spatial_grid_type)
 
     # Set up particle advection scheme, model, and simulation
-    particle_advection = ParticleAdvection2D(spectral_grid; nparticles=n_particles, backwards=backwards)
+    particle_advection = ParticleAdvection2D(
+        spectral_grid;
+        nparticles=n_particles,
+        backwards=backwards,
+        every_n_time_steps=particle_advection_every_n_time_steps,
+    )
     if model_type != BarotropicModel
         @warn "get_FTLE currently only tested with BarotropicModel. Unexpected behaviour may occur."
     end
-    model = model_type(spectral_grid; dynamics=dynamics, particle_advection=particle_advection)
-    simulation = initialize!(model)
+    model = with_logger(ConsoleLogger(stderr, Logging.Warn)) do
+        model_type(spectral_grid; dynamics=dynamics, particle_advection=particle_advection)
+    end
+    simulation = with_logger(ConsoleLogger(stderr, Logging.Warn)) do
+        initialize!(model)
+    end
 
-    particle_tracker = ParticleTracker(spectral_grid; schedule=Schedule(every=Hour(rint_hours)))
+    particle_tracker = ParticleTracker(
+        spectral_grid;
+        schedule=Schedule(every=Hour(rint_hours)),
+        keepbits=particle_tracker_keepbits,
+        compression_level=particle_tracker_compression_level,
+        shuffle=particle_tracker_shuffle,
+        path=particle_tracker_path,
+        filename=particle_tracker_filename,
+    )
     model.callbacks[:particle_tracker] = particle_tracker
 
     ### Perturb initial locations of particles ###
@@ -109,37 +210,75 @@ function get_FTLE(
     ### Calculate time-dependent FTLE ###
 
     # Read in particle positions over time
-    path = joinpath(model.output.run_path, particle_tracker.filename) # Path to netCDF file
-    particles_ds = NCDataset(path,"r")
+    path = joinpath(particle_tracker.path == "" ? model.output.run_path : particle_tracker.path, particle_tracker.filename)
+    should_keep_particle_file = keep_particle_file || return_particle_file_path
 
-    # Time dimension
-    time_vec = particles_ds["time"][:] # DateTime
-    time_hours = ( time_vec .- time_vec[1] ) ./ Hour(1) # Hours since release time
-
-    # Initialise array to hold FTLE over grid and over time
-    FTLE_grid_time = Array{Float64}(undef, spectral_grid.npoints, particles_ds.dim["time"]) 
-
-    # Iterate over time steps
-    for (tindex, thour) in enumerate(time_hours)
-
-        # Particle latitudes and longitudes
-        plonds = particles_ds["lon"][:,tindex]
-        platds = particles_ds["lat"][:,tindex]
-
-        # Calculate displacement gradient matrix
-        B = displacement_gradient_matrix_central(plonds, platds, dist_km)
-
-        # Calculate FTLE
-        FTLE_grid_time[:,tindex] .= FTLE_over_grid(B, thour)
-
+    try
+        FTLE_grid_time, time_hours = FTLE_from_particle_file(path, spectral_grid, dist_km; time_indices)
+        if return_result
+            return FTLEResult(
+                FTLE_grid_time,
+                spectral_grid,
+                time_hours;
+                particle_file_path=should_keep_particle_file ? path : nothing,
+                dist_km,
+                backwards,
+                dynamics,
+                rint_hours,
+            )
+        elseif return_particle_file_path
+            return FTLE_grid_time, spectral_grid, time_hours, path
+        else
+            return FTLE_grid_time, spectral_grid, time_hours
+        end
+    finally
+        should_keep_particle_file || rm(path; force=true) # Remove temporary netCDF file
     end
-
-    close(particles_ds)
-    rm(path) # Remove temporary netCDF file
-
-    return FTLE_grid_time, spectral_grid, time_hours
 
 end
 
+function _reject_backwards_keyword(kwargs, function_name)
+    if :backwards in keys(kwargs)
+        throw(ArgumentError("$function_name fixes the FTLE time direction; use get_FTLE to pass backwards explicitly"))
+    end
+    return nothing
+end
+
+"""
+    positive_FTLE(u::Field, v::Field; kwargs...)
+
+Compute positive-time FTLE by calling [`get_FTLE`](@ref) with
+`backwards = false`.
+
+All other keyword arguments are forwarded to [`get_FTLE`](@ref). Passing a
+`backwards` keyword is rejected because this wrapper fixes the time direction.
+"""
+function positive_FTLE(u::Field, v::Field; kwargs...)
+    """
+    Compute positive-time FTLE by running `get_FTLE` with `backwards=false`.
+    """
+    _reject_backwards_keyword(kwargs, "positive_FTLE")
+    return get_FTLE(u, v; backwards=false, kwargs...)
+end
+
+"""
+    negative_FTLE(u::Field, v::Field; kwargs...)
+
+Compute negative-time FTLE by calling [`get_FTLE`](@ref) with
+`backwards = true`.
+
+All other keyword arguments are forwarded to [`get_FTLE`](@ref). Passing a
+`backwards` keyword is rejected because this wrapper fixes the time direction.
+"""
+function negative_FTLE(u::Field, v::Field; kwargs...)
+    """
+    Compute negative-time FTLE by running `get_FTLE` with `backwards=true`.
+    """
+    _reject_backwards_keyword(kwargs, "negative_FTLE")
+    return get_FTLE(u, v; backwards=true, kwargs...)
+end
+
 export get_FTLE
+export positive_FTLE
+export negative_FTLE
 export Re

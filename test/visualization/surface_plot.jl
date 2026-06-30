@@ -27,4 +27,77 @@ using SpeedyWeatherFTLE
             @test ax.title[] == title
         end
     end
+
+    @testset "FTLE matrix overload" begin
+        spectral_grid = SpectralGrid(nlayers=1, trunc=6, Grid=FullGaussianGrid)
+        FTLE = rand(spectral_grid.npoints, 4)
+        field = ftle_field(FTLE, spectral_grid)
+        final_field = ftle_field(FTLE[:, end], spectral_grid)
+        result = FTLEResult(
+            FTLE,
+            spectral_grid,
+            collect(0.0:3.0);
+            dist_km = 10,
+            backwards = false,
+            dynamics = false,
+            rint_hours = 1,
+        )
+
+        @test isa(field, Field)
+        @test size(field) == size(FTLE)
+        @test isa(final_field, Field)
+        @test size(final_field) == (spectral_grid.npoints,)
+        @test size(result) == size(FTLE)
+        @test final_ftle(result) == FTLE[:, end]
+        @test final_ftle_field(result) == final_field
+        @test ftle_field(result; time_indices = 2) == ftle_field(view(FTLE, :, 2), spectral_grid)
+        @test ftle_field(result; time_indices = :last) == final_field
+        @test ftle_field(result; time_indices = :nonzero) == ftle_field(view(FTLE, :, 2:4), spectral_grid)
+        @test_throws DimensionMismatch ftle_field(FTLE[1:end - 1, end], spectral_grid)
+        @test_throws ArgumentError ftle_field(result; time_indices = :middle)
+
+        fig, ax, sp, cb = surface_plot(
+            FTLE,
+            spectral_grid;
+            time_index = 4,
+            title = title,
+            colorbar = true,
+            label = label,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test cb.label[] == label
+        @test ax.title[] == title
+        @test_throws BoundsError surface_plot(FTLE, spectral_grid; time_index = 0)
+
+        fig, ax, sp, cb = surface_plot(
+            FTLE[:, end],
+            spectral_grid;
+            title = title,
+            colorbar = false,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test cb === nothing
+        @test ax.title[] == title
+
+        fig, ax, sp, cb = surface_plot(
+            result;
+            time_index = 3,
+            colorbar = false,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test cb === nothing
+    end
 end

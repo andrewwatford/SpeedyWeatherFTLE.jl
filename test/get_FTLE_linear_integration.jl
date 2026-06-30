@@ -57,6 +57,7 @@ using Test
                     dynamics = false,
                     backwards,
                     rint_hours = 6,
+                    particle_tracker_keepbits = 23,
                 )
             end
 
@@ -72,5 +73,119 @@ using Test
 
             @test actual ≈ expected rtol=rtol atol=atol
         end
+    end
+
+    @testset "particle advection cadence keyword" begin
+        # This runs the same linear-flow check with particles updated every model
+        # time step. The recorded final time should now be a genuine 6-hour
+        # advection result, rather than waiting for the default 18-hour cadence.
+        A = [2e-6 0.0; 0.0 0.0]
+        u, v = linear_velocity_fields(A)
+        tracker_dir = mktempdir()
+        particle_path = nothing
+
+        try
+            FTLE, spectral_grid, time_hours, particle_path = with_logger(ConsoleLogger(stderr, Logging.Warn)) do
+                get_FTLE(
+                    u,
+                    v;
+                    simulation_days = 0.25,
+                    dist_km = 500,
+                    dynamics = false,
+                    backwards = false,
+                    rint_hours = 3,
+                    particle_advection_every_n_time_steps = 1,
+                    particle_tracker_keepbits = 23,
+                    particle_tracker_path = tracker_dir,
+                    particle_tracker_filename = "linear_particles.nc",
+                    return_particle_file_path = true,
+                )
+            end
+
+            @test isfile(particle_path)
+
+            reread_FTLE, reread_time_hours = FTLE_from_particle_file(particle_path, spectral_grid, 500)
+            @test isequal(reread_FTLE, FTLE)
+            @test reread_time_hours == time_hours
+
+            FTLE_buffer = fill(NaN, size(FTLE))
+            B_buffer = fill(NaN, 2, 2, spectral_grid.npoints)
+            inplace_FTLE, inplace_time_hours = FTLE_from_particle_file!(
+                FTLE_buffer,
+                B_buffer,
+                particle_path,
+                spectral_grid,
+                500,
+            )
+
+            @test inplace_FTLE === FTLE_buffer
+            @test isequal(inplace_FTLE, FTLE)
+            @test inplace_time_hours == time_hours
+
+            subset_indices = [length(time_hours), length(time_hours) - 1]
+            subset_FTLE, subset_time_hours = FTLE_from_particle_file(
+                particle_path,
+                spectral_grid,
+                500;
+                time_indices = subset_indices,
+            )
+            @test isequal(subset_FTLE, FTLE[:, subset_indices])
+            @test subset_time_hours == time_hours[subset_indices]
+
+            nonzero_FTLE, nonzero_time_hours = FTLE_from_particle_file(
+                particle_path,
+                spectral_grid,
+                500;
+                time_indices = :nonzero,
+            )
+            @test isequal(nonzero_FTLE, FTLE[:, 2:end])
+            @test nonzero_time_hours == time_hours[2:end]
+
+            single_time_FTLE = fill(NaN, spectral_grid.npoints, 1)
+            single_time_result, single_time_hours = FTLE_from_particle_file!(
+                single_time_FTLE,
+                B_buffer,
+                particle_path,
+                spectral_grid,
+                500;
+                time_indices = :last,
+            )
+            @test single_time_result === single_time_FTLE
+            @test isequal(single_time_result, FTLE[:, end:end])
+            @test single_time_hours == [time_hours[end]]
+
+            @test_throws DimensionMismatch FTLE_from_particle_file!(
+                fill(NaN, spectral_grid.npoints + 1, length(time_hours)),
+                B_buffer,
+                particle_path,
+                spectral_grid,
+                500,
+            )
+            @test_throws DimensionMismatch FTLE_from_particle_file!(
+                FTLE_buffer,
+                fill(NaN, 2, 2, spectral_grid.npoints + 1),
+                particle_path,
+                spectral_grid,
+                500,
+            )
+            @test_throws BoundsError FTLE_from_particle_file(particle_path, spectral_grid, 500; time_indices = [length(time_hours) + 1])
+            @test_throws ArgumentError FTLE_from_particle_file(particle_path, spectral_grid, 500; time_indices = 1.5)
+
+            t = time_hours[end]
+            @test t == 6
+
+            flow_map = exp(3600 * t * A)
+            expected = log(maximum(svdvals(flow_map))) / t
+            actual = FTLE[center_gridpoint(spectral_grid.grid), end]
+
+            @test actual ≈ expected rtol=1e-2 atol=2e-5
+        finally
+            particle_path === nothing || rm(particle_path; force=true)
+            rm(tracker_dir; force=true, recursive=true)
+        end
+
+        @test_throws ArgumentError get_FTLE(u, v; particle_advection_every_n_time_steps = 0)
+        @test_throws ArgumentError get_FTLE(u, v; dist_km = 0)
+        @test_throws ArgumentError get_FTLE(u, v; particle_tracker_compression_level = 10)
     end
 end

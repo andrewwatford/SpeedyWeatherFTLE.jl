@@ -21,4 +21,98 @@ using InteractiveUtils
             end
         end
     end
+
+    @testset "FTLEResult return" begin
+        spatial_grid = FullClenshawGrid(4)
+        u = rand(spatial_grid)
+        v = rand(spatial_grid)
+
+        function capture_stderr(f)
+            path = tempname()
+            try
+                result = open(path, "w") do io
+                    redirect_stderr(io) do
+                        f()
+                    end
+                end
+                return result, read(path, String)
+            finally
+                rm(path; force=true)
+            end
+        end
+
+        result, positive_stderr = capture_stderr() do
+            positive_FTLE(
+                u,
+                v;
+                simulation_days = 0.25,
+                dynamics = false,
+                rint_hours = 3,
+                particle_advection_every_n_time_steps = 1,
+                return_result = true,
+                time_indices = :nonzero,
+            )
+        end
+
+        @test isa(result, FTLEResult)
+        @test !occursin("Time step changed", positive_stderr)
+        @test result.particle_file_path === nothing
+        @test result.dist_km == 10
+        @test result.backwards == false
+        @test result.direction == :positive
+        @test result.dynamics == false
+        @test result.rint_hours == 3
+        @test result.time_hours == [3.0, 6.0]
+        @test size(result, 1) == result.spectral_grid.npoints
+        @test size(result, 2) == 2
+        @test isa(ftle_field(result), Field)
+        @test length(final_ftle(result)) == result.spectral_grid.npoints
+        @test isa(final_ftle_field(result), Field)
+
+        negative_result, negative_stderr = capture_stderr() do
+            negative_FTLE(
+                u,
+                v;
+                simulation_days = 0.25,
+                dynamics = false,
+                rint_hours = 3,
+                particle_advection_every_n_time_steps = 1,
+                return_result = true,
+                time_indices = :last,
+            )
+        end
+
+        @test isa(negative_result, FTLEResult)
+        @test !occursin("Time step changed", negative_stderr)
+        @test negative_result.backwards == true
+        @test negative_result.direction == :negative
+        @test negative_result.time_hours == [6.0]
+        @test size(negative_result, 1) == negative_result.spectral_grid.npoints
+        @test size(negative_result, 2) == 1
+        @test_throws ArgumentError positive_FTLE(u, v; backwards = true)
+        @test_throws ArgumentError negative_FTLE(u, v; backwards = false)
+        selected_FTLE, selected_spectral_grid, selected_time_hours = get_FTLE(
+            u,
+            v;
+            simulation_days = 0.25,
+            dynamics = false,
+            rint_hours = 3,
+            particle_advection_every_n_time_steps = 1,
+            time_indices = [false, true, true],
+        )
+
+        @test isa(selected_FTLE, Matrix{Float64})
+        @test isa(selected_spectral_grid, SpectralGrid)
+        @test selected_time_hours == [3.0, 6.0]
+        @test size(selected_FTLE) == (selected_spectral_grid.npoints, 2)
+        @test_throws ArgumentError positive_FTLE(
+            u,
+            v;
+            simulation_days = 0.25,
+            dynamics = false,
+            rint_hours = 3,
+            particle_advection_every_n_time_steps = 1,
+            time_indices = :middle,
+        )
+    end
 end
