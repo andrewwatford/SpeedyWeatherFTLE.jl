@@ -89,5 +89,71 @@ using SpeedyWeatherFTLE
         @test isa(ax, GeoAxis)
         @test isa(sp, GeoMakie.Surface)
         @test cb === nothing
+
+        handle = slider_plot(
+            result;
+            title = title,
+            colorbar = false,
+            coastlines = false,
+            return_handle = true,
+        )
+
+        @test isa(handle, SliderPlotHandle)
+        @test isa(handle.fig, Figure)
+        @test isa(handle.ax, GeoAxis)
+        @test isa(handle.sp, GeoMakie.Surface)
+        @test handle.cb === nothing
+        @test handle.times == collect(1.0:4.0)
+        @test handle.slider.value[] == 1
+
+        recorded_frames = Int[]
+        fake_record(callback, fig, path, frames; framerate, kwargs...) = begin
+            @test fig === handle.fig
+            @test path == "ftle-slider.gif"
+            @test framerate == 4
+            for frame in frames
+                push!(recorded_frames, frame)
+                callback(frame)
+            end
+            path
+        end
+
+        returned_path = SpeedyWeatherFTLE._record_slider_animation!(
+            fake_record,
+            "ftle-slider.gif",
+            handle,
+            1:3;
+            framerate = 4,
+            record_kwargs = (;),
+        )
+
+        @test returned_path == "ftle-slider.gif"
+        @test recorded_frames == [1, 2, 3]
+        @test handle.slider.value[] == 3
+
+        public_recorded_frames = Int[]
+        public_fake_record(callback, fig, path, frames; framerate, kwargs...) = begin
+            @test isa(fig, Figure)
+            @test path == "public-ftle-slider.gif"
+            @test framerate == 5
+            for frame in frames
+                push!(public_recorded_frames, frame)
+                callback(frame)
+            end
+            path
+        end
+
+        public_returned_path = animate_slider_plot(
+            "public-ftle-slider.gif",
+            result;
+            frames = 1:2,
+            framerate = 5,
+            record_function = public_fake_record,
+            colorbar = false,
+            coastlines = false,
+        )
+
+        @test public_returned_path == "public-ftle-slider.gif"
+        @test public_recorded_frames == [1, 2]
     end
 end

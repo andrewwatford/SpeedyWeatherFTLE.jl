@@ -72,6 +72,85 @@ The zero-duration tracker sample is skipped by default because FTLE is
 undefined at `t = 0`. Pass `start_index = 1` if you explicitly want to include
 that column.
 
+## Record a Slider Animation
+
+[`animate_slider_plot`](@ref) records an animation by advancing the same slider
+used by [`slider_plot`](@ref). The documentation build uses CairoMakie so this
+works in CI without opening a GL window.
+
+```@example plotting
+animation_path = joinpath(mktempdir(), "synthetic-ftle-slider.gif")
+
+animate_slider_plot(
+    animation_path,
+    time_hours,
+    FTLE_grid_time,
+    spatial_grid;
+    framerate = 2,
+    title = "Synthetic FTLE animation",
+    colorbar_label = "FTLE [1/h]",
+    coastlines = false,
+)
+
+isfile(animation_path), filesize(animation_path) > 0
+```
+
+For local interactive use, activate GLMakie before making the plot:
+
+```julia
+using GLMakie
+
+fig, ax, sp, cb = slider_plot(
+    result;
+    title = "Interactive FTLE time series",
+    colorbar_label = "FTLE [1/h]",
+)
+
+display(fig)
+animate_slider_plot("ftle-slider.mp4", result; framerate = 12)
+```
+
+## Plot an Interactive Globe
+
+[`globe_plot`](@ref) uses GeoMakie's `GlobeAxis`. In this documentation build it
+renders as a static CairoMakie figure; locally with GLMakie the returned globe
+can be rotated and zoomed.
+
+```@example plotting
+fig, ax, sp, cb = globe_plot(
+    synthetic_ftle,
+    spatial_grid;
+    lon = collect(-180:10:180),
+    lat = collect(-90:10:90),
+    title = "Synthetic FTLE globe",
+    label = "FTLE [1/h]",
+)
+
+fig
+```
+
+The same overloads as [`surface_plot`](@ref) are available:
+
+```julia
+globe_plot(result; label = "FTLE [1/h]")
+globe_plot(FTLE_grid_time, spectral_grid; time_index = 3)
+globe_plot(final_ftle(result), result.spectral_grid)
+```
+
+For an interactive local globe:
+
+```julia
+using GLMakie
+
+fig, ax, sp, cb = globe_plot(
+    result;
+    title = "Interactive FTLE globe",
+    label = "FTLE [1/h]",
+)
+
+display(fig)
+```
+
 ## Convert Without Plotting
 
 Use [`ftle_field`](@ref) when you want a `RingGrids.Field` for your own plotting

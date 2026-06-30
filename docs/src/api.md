@@ -30,6 +30,9 @@ FTLE_from_particle_file!
 ftle_field
 surface_plot
 slider_plot
+SliderPlotHandle
+animate_slider_plot
+globe_plot
 ```
 
 ## Constants

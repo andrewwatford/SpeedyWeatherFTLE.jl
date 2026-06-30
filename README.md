@@ -16,7 +16,8 @@ The Documenter site in `docs/src` is the best onboarding path. It includes:
 - concepts and array layout for FTLE post-processing;
 - complete examples for positive- and negative-time FTLE;
 - saved particle-file workflows;
-- plotting examples with `surface_plot` and `slider_plot`;
+- plotting examples with `surface_plot`, `slider_plot`, `animate_slider_plot`,
+  and `globe_plot`;
 - an API reference generated from the package docstrings.
 
 Build it locally from the repository root with:

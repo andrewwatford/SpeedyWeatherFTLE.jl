@@ -19,6 +19,7 @@ include("visualization/ftle_field.jl")
 include("FTLE_result.jl")
 include("visualization/surface_plot.jl")
 include("visualization/slider_plot.jl")
+include("visualization/globe.jl")
 include("get_FTLE.jl")
 
 export FTLEResult
@@ -31,6 +32,9 @@ export FTLE_from_particle_file!
 export FTLE_from_particle_file
 export surface_plot
 export slider_plot
+export SliderPlotHandle
+export animate_slider_plot
+export globe_plot
 export get_FTLE
 export positive_FTLE
 export negative_FTLE

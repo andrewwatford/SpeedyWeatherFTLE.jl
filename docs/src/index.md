@@ -81,7 +81,8 @@ fig
 - [Particle Files](particle_files.md): saving and reusing SpeedyWeather
   `ParticleTracker` NetCDF output.
 - [Plotting](plotting.md): converting arrays to fields and using
-  [`surface_plot`](@ref) and [`slider_plot`](@ref).
+  [`surface_plot`](@ref), [`slider_plot`](@ref), [`animate_slider_plot`](@ref),
+  and [`globe_plot`](@ref).
 - [API Reference](api.md): generated reference documentation for exported
   functions and types.
 

@@ -11,34 +11,29 @@ function _finite_absmax(data)
 end
 
 """
-    slider_plot(times, field_ts::RingGrids.Field; kwargs...)
-    slider_plot(times, FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid; start_index = nothing, kwargs...)
-    slider_plot(result::FTLEResult; kwargs...)
+    SliderPlotHandle
 
-Plot an FTLE time series with a Makie slider.
+Internal controls returned by [`slider_plot`](@ref) when
+`return_handle = true`.
 
-`slider_plot` accepts a time-dependent `RingGrids.Field`, the matrix returned by
-[`get_FTLE`](@ref), or an [`FTLEResult`](@ref). For FTLE arrays, the
-zero-duration sample is skipped by default because FTLE is undefined at
-`t = 0`; pass `start_index = 1` to include it.
-
-# Keyword Arguments
-
-- `lon = Vector(-180:180)`: interpolation longitudes for plotting.
-- `lat = Vector(-90:90)`: interpolation latitudes for plotting.
-- `shading = NoShading`: Makie surface shading option.
-- `title = nothing`: optional plot title.
-- `colormap = :viridis`: Makie colormap.
-- `colorbar = true`: add a colorbar.
-- `colorrange = nothing`: color limits. When omitted, finite values determine a symmetric range.
-- `colorbar_label = nothing`: optional colorbar label.
-- `coastlines = true`: draw GeoMakie coastlines.
-
-# Returns
-
-`fig, ax, sp, cb`, where `cb` is `nothing` when `colorbar = false`.
+The first four fields match the normal `slider_plot` return values:
+`fig, ax, sp, cb`. The remaining fields expose the `SliderGrid`, the active
+slider, and the plotted time values so helper functions such as
+[`animate_slider_plot`](@ref) can drive the same slider plot.
 """
-function slider_plot(
+struct SliderPlotHandle{F, A, S, C, G, L, T}
+    fig::F
+    ax::A
+    sp::S
+    cb::C
+    slidergrid::G
+    slider::L
+    times::T
+end
+
+_plot_tuple(handle::SliderPlotHandle) = (handle.fig, handle.ax, handle.sp, handle.cb)
+
+function _slider_plot_handle(
     times::AbstractVector{<:Real},
     field_ts::Field;
     lon::Vector=Vector(-180:180),
@@ -51,27 +46,6 @@ function slider_plot(
     colorbar_label=nothing, 
     coastlines::Bool=true,
     )
-    """
-    Create a surface plot of a 2D field on a geographic axis. Currently supports only the default projection in GeoMakie.
-
-    # Arguments
-    - `field_ts::Field`: 2D field data to be plotted, in a time-series.
-    - `duration::Float64`: Duration of the time series.
-    - `lon::Vector`: Longitudes of the points to interpolate onto.
-    - `lat::Vector`: Latitudes of the points to interpolate onto.
-    - `shading`: Shading option for the surface plot (default: `NoShading`).
-    - `title`: Title of the plot. (default: `nothing`).
-    - `colormap`: Colormap to use for the surface plot. (default: `:viridis`).
-    - `colorbar::Bool`: Whether to include a colorbar in the plot. (default: `true`).
-    - `label`: Label for the colorbar. (default: `nothing`).
-    - `coastlines::Bool`: Whether to add coastlines to the plot. (default: `true`).
-
-    # Returns
-    - `fig`: The figure object.
-    - `ax`: The geographic axis object.
-    - `sp`: The surface plot object.
-    - `cb`: The colorbar object (if `colorbar` is `true`).
-    """
     # Number of time steps
     n_times = size(field_ts, 2)
     length(times) == n_times ||
@@ -120,7 +94,49 @@ function slider_plot(
         lines!(ax, GeoMakie.coastlines(), color=:black, overdraw=true)
     end
 
-    return fig, ax, sp, cb
+    return SliderPlotHandle(fig, ax, sp, cb, sg, sl, collect(times))
+end
+
+"""
+    slider_plot(times, field_ts::RingGrids.Field; kwargs...)
+    slider_plot(times, FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid; start_index = nothing, kwargs...)
+    slider_plot(result::FTLEResult; kwargs...)
+
+Plot an FTLE time series with a Makie slider.
+
+`slider_plot` accepts a time-dependent `RingGrids.Field`, the matrix returned by
+[`get_FTLE`](@ref), or an [`FTLEResult`](@ref). For FTLE arrays, the
+zero-duration sample is skipped by default because FTLE is undefined at
+`t = 0`; pass `start_index = 1` to include it.
+
+# Keyword Arguments
+
+- `lon = Vector(-180:180)`: interpolation longitudes for plotting.
+- `lat = Vector(-90:90)`: interpolation latitudes for plotting.
+- `shading = NoShading`: Makie surface shading option.
+- `title = nothing`: optional plot title.
+- `colormap = :viridis`: Makie colormap.
+- `colorbar = true`: add a colorbar.
+- `colorrange = nothing`: color limits. When omitted, finite values determine a symmetric range.
+- `colorbar_label = nothing`: optional colorbar label.
+- `coastlines = true`: draw GeoMakie coastlines.
+- `return_handle = false`: return a [`SliderPlotHandle`](@ref) with the slider
+  controls instead of the usual four-value tuple.
+
+# Returns
+
+By default, returns `fig, ax, sp, cb`, where `cb` is `nothing` when
+`colorbar = false`. With `return_handle = true`, returns a
+[`SliderPlotHandle`](@ref).
+"""
+function slider_plot(
+    times::AbstractVector{<:Real},
+    field_ts::Field;
+    return_handle::Bool=false,
+    kwargs...
+    )
+    handle = _slider_plot_handle(times, field_ts; kwargs...)
+    return return_handle ? handle : _plot_tuple(handle)
 end
 
 function slider_plot(
@@ -128,6 +144,7 @@ function slider_plot(
     FTLE_grid_time::AbstractMatrix,
     grid_or_spectral_grid;
     start_index=nothing,
+    return_handle::Bool=false,
     kwargs...
     )
     """
@@ -148,7 +165,7 @@ function slider_plot(
 
     time_indices = start_index:lastindex(times)
     field_ts = ftle_field(view(FTLE_grid_time, :, time_indices), grid_or_spectral_grid)
-    return slider_plot(times[time_indices], field_ts; kwargs...)
+    return slider_plot(times[time_indices], field_ts; return_handle, kwargs...)
 end
 
 function slider_plot(
@@ -161,4 +178,81 @@ function slider_plot(
     return slider_plot(result.time_hours, result.ftle, result.spectral_grid; kwargs...)
 end
 
+function _record_slider_animation!(record_function, path, handle::SliderPlotHandle, frames; framerate, record_kwargs)
+    record_function(handle.fig, path, frames; framerate, record_kwargs...) do frame_index
+        Makie.set_close_to!(handle.slider, frame_index)
+    end
+    return path
+end
+
+"""
+    animate_slider_plot(path, times, field_ts::RingGrids.Field; kwargs...)
+    animate_slider_plot(path, times, FTLE_grid_time, grid_or_spectral_grid; start_index = nothing, kwargs...)
+    animate_slider_plot(path, result::FTLEResult; kwargs...)
+
+Record an animation by advancing the same slider used by [`slider_plot`](@ref).
+
+`path` should end in a Makie-supported animation extension such as `.mp4` or
+`.gif`. All plotting keyword arguments accepted by [`slider_plot`](@ref) are
+forwarded. Use `framerate` to control the output speed. `record_kwargs` are
+forwarded to `Makie.record`.
+
+This function works with the active Makie backend. In CI and documentation
+builds, `CairoMakie` can record a non-interactive animation. For local
+interactive exploration, activate `GLMakie` before calling `slider_plot` or
+`animate_slider_plot`.
+
+# Returns
+
+The animation `path`.
+"""
+function animate_slider_plot(
+    path::AbstractString,
+    times::AbstractVector{<:Real},
+    field_ts::Field;
+    framerate::Real=10,
+    frames=nothing,
+    record_kwargs=NamedTuple(),
+    record_function=Makie.record,
+    kwargs...
+    )
+    handle = slider_plot(times, field_ts; return_handle=true, kwargs...)
+    frame_indices = frames === nothing ? eachindex(handle.times) : frames
+    return _record_slider_animation!(record_function, path, handle, frame_indices; framerate, record_kwargs)
+end
+
+function animate_slider_plot(
+    path::AbstractString,
+    times::AbstractVector{<:Real},
+    FTLE_grid_time::AbstractMatrix,
+    grid_or_spectral_grid;
+    start_index=nothing,
+    framerate::Real=10,
+    frames=nothing,
+    record_kwargs=NamedTuple(),
+    record_function=Makie.record,
+    kwargs...
+    )
+    handle = slider_plot(
+        times,
+        FTLE_grid_time,
+        grid_or_spectral_grid;
+        start_index,
+        return_handle=true,
+        kwargs...,
+    )
+    frame_indices = frames === nothing ? eachindex(handle.times) : frames
+    return _record_slider_animation!(record_function, path, handle, frame_indices; framerate, record_kwargs)
+end
+
+function animate_slider_plot(
+    path::AbstractString,
+    result::FTLEResult;
+    kwargs...
+    )
+    return animate_slider_plot(path, result.time_hours, result.ftle, result.spectral_grid; kwargs...)
+end
+
 export slider_plot
+export SliderPlotHandle
+export animate_slider_plot
