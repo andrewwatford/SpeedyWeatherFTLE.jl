@@ -17,14 +17,14 @@ function displacement_gradient_matrix_central(plonds, platds, dist_km)
 
     dfac = Re / (dist_km * 1000) / 2
 
-    cos_factor = cos.(deg2rad.(platds)) # Cos(latitude)
+    lon_diff(lond1, lond2) = mod(lond1 - lond2 + 180, 360) - 180
 
     # Derivative of x w.r.t. X
-    xX = [deg2rad((plonds[4i-3] - plonds[4i-2]))*cos_factor[i]*dfac for i in 1:Ngpoints];
+    xX = [deg2rad(lon_diff(plonds[4i-3], plonds[4i-2]))*cosd((platds[4i-3] + platds[4i-2])/2)*dfac for i in 1:Ngpoints];
     # Derivative of y w.r.t. X 
     yX = [deg2rad((platds[4i-3] - platds[4i-2]))*dfac for i in 1:Ngpoints];
     # Derivative of x w.r.t. Y
-    xY = [deg2rad((plonds[4i-1] - plonds[4i]))*cos_factor[i]*dfac for i in 1:Ngpoints];
+    xY = [deg2rad(lon_diff(plonds[4i-1], plonds[4i]))*cosd((platds[4i-1] + platds[4i])/2)*dfac for i in 1:Ngpoints];
     # Derivative of y w.r.t. Y 
     yY = [deg2rad((platds[4i-1] - platds[4i]))*dfac for i in 1:Ngpoints];
 

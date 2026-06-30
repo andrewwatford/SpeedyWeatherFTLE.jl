@@ -87,10 +87,6 @@ function get_FTLE(
     model = model_type(spectral_grid; dynamics=dynamics, particle_advection=particle_advection)
     simulation = initialize!(model)
 
-    # Apply prescribed velocity field
-    simulation.variables.grid.u[:, 1, 1] .= u
-    simulation.variables.grid.v[:, 1, 1] .= v
-
     particle_tracker = ParticleTracker(spectral_grid; schedule=Schedule(every=Hour(rint_hours)))
     model.callbacks[:particle_tracker] = particle_tracker
 
@@ -99,9 +95,15 @@ function get_FTLE(
     (; particles) = simulation.variables.prognostic
     perturb_positions_FTLE(particles, londs, latds, dist_km)
 
-    ### Run with noisy logging suppressed ###
+    # SpeedyWeather.initialize!(simulation) transforms model prognostics to grid space,
+    # so apply the prescribed static grid velocities after that initialization step.
     with_logger(ConsoleLogger(stderr, Logging.Warn)) do
-        run!(simulation, period=Day(simulation_days), output=false)
+        SpeedyWeather.initialize!(simulation; period=Day(simulation_days), output=false)
+        simulation.variables.grid.u[:, 1, 1] .= u
+        simulation.variables.grid.v[:, 1, 1] .= v
+        SpeedyWeather.initialize!(simulation.variables, particles, model)
+        SpeedyWeather.time_stepping!(simulation)
+        SpeedyWeather.finalize!(simulation)
     end
 
     ### Calculate time-dependent FTLE ###
