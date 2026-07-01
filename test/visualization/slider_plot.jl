@@ -103,8 +103,23 @@ using SpeedyWeatherFTLE
         @test isa(handle.ax, GeoAxis)
         @test isa(handle.sp, GeoMakie.Surface)
         @test handle.cb === nothing
+        @test isa(handle.time_label, Label)
         @test handle.times == collect(1.0:4.0)
         @test handle.slider.value[] == 1
+        @test set_slider_time!(handle, 2.6) === handle
+        @test handle.slider.value[] == 3
+
+        compact_handle = slider_plot(
+            result;
+            title = title,
+            colorbar = false,
+            coastlines = false,
+            return_handle = true,
+            time_label = false,
+        )
+
+        @test isa(compact_handle, SliderPlotHandle)
+        @test compact_handle.time_label === nothing
 
         recorded_frames = Int[]
         fake_record(callback, fig, path, frames; framerate, kwargs...) = begin

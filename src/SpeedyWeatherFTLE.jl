@@ -36,6 +36,7 @@ export FTLE_from_particle_file
 export surface_plot
 export slider_plot
 export SliderPlotHandle
+export set_slider_time!
 export animate_slider_plot
 export globe_plot
 export get_FTLE

@@ -35,6 +35,7 @@ ftle_field
 surface_plot
 slider_plot
 SliderPlotHandle
+set_slider_time!
 animate_slider_plot
 globe_plot
 ```
