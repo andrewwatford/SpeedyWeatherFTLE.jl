@@ -72,6 +72,63 @@ using Test
         @test SpeedyWeatherFTLE.displacement_gradient_matrix_central(plonds, platds, dist_km)[:, :, 1] ≈ I
     end
 
+    @testset "initial FTLE particle release positions" begin
+        dist_km = 10.0
+        londs = [10.0, 20.0]
+        latds = [0.0, 30.0]
+        delta_degrees = rad2deg(dist_km * 1000 / SpeedyWeatherFTLE.Re)
+
+        plonds, platds = initial_FTLE_particle_positions(londs, latds, dist_km)
+        expected_plonds = [
+            londs[1] + delta_degrees,
+            londs[1] - delta_degrees,
+            londs[1],
+            londs[1],
+            londs[2] + delta_degrees / cosd(latds[2]),
+            londs[2] - delta_degrees / cosd(latds[2]),
+            londs[2],
+            londs[2],
+        ]
+        expected_platds = [
+            latds[1],
+            latds[1],
+            latds[1] + delta_degrees,
+            latds[1] - delta_degrees,
+            latds[2],
+            latds[2],
+            latds[2] + delta_degrees,
+            latds[2] - delta_degrees,
+        ]
+
+        @test plonds ≈ expected_plonds
+        @test platds ≈ expected_platds
+
+        plonds_buffer = fill(NaN, length(plonds))
+        platds_buffer = fill(NaN, length(platds))
+        returned_plonds, returned_platds = initial_FTLE_particle_positions!(
+            plonds_buffer,
+            platds_buffer,
+            londs,
+            latds,
+            dist_km,
+        )
+        @test returned_plonds === plonds_buffer
+        @test returned_platds === platds_buffer
+        @test plonds_buffer ≈ plonds
+        @test platds_buffer ≈ platds
+
+        particles = fill(Particle(0.0, 0.0), length(plonds))
+        SpeedyWeatherFTLE.perturb_positions_FTLE(particles, londs, latds, dist_km)
+        @test [particle.lon for particle in particles] ≈ plonds
+        @test [particle.lat for particle in particles] ≈ platds
+
+        @test_throws DimensionMismatch initial_FTLE_particle_positions(londs, latds[1:1], dist_km)
+        @test_throws DimensionMismatch initial_FTLE_particle_positions!(plonds_buffer[1:end - 1], platds_buffer, londs, latds, dist_km)
+        @test_throws DimensionMismatch initial_FTLE_particle_positions!(plonds_buffer, platds_buffer[1:end - 1], londs, latds, dist_km)
+        @test_throws DimensionMismatch SpeedyWeatherFTLE.perturb_positions_FTLE(particles[1:end - 1], londs, latds, dist_km)
+        @test_throws ArgumentError initial_FTLE_particle_positions(londs, latds, 0)
+    end
+
     @testset "linear particle trajectories" begin
         # This exercises the FTLE particle layout and displacement-gradient
         # reconstruction using exact trajectories from u = A*x, without the
@@ -146,6 +203,30 @@ using Test
             @test returned_times == Float64.(times)
             @test all(isnan, FTLE_grid_time[:, 1])
             @test vec(FTLE_grid_time[:, 2:end]) ≈ expected rtol=1e-4 atol=1e-8
+
+            expected_stretching = exp.(expected .* times[2:end])
+            stretching = stretching_factor(FTLE_grid_time, returned_times)
+            stretching_buffer = fill(NaN, size(FTLE_grid_time))
+            @test stretching_factor!(stretching_buffer, FTLE_grid_time, returned_times) === stretching_buffer
+            @test isequal(stretching_buffer, stretching)
+            @test all(isnan, stretching[:, 1])
+            @test vec(stretching[:, 2:end]) ≈ expected_stretching rtol=1e-4 atol=1e-8
+            @test stretching_factor(vec(FTLE_grid_time[:, 2]), returned_times[2]) ≈ [expected_stretching[1]] rtol=1e-4 atol=1e-8
+            @test isequal(
+                stretching_factor(FTLEResult(
+                    FTLE_grid_time,
+                    nothing,
+                    returned_times;
+                    dist_km,
+                    backwards = false,
+                    dynamics = false,
+                    rint_hours = 1,
+                )),
+                stretching,
+            )
+            @test_throws DimensionMismatch stretching_factor(FTLE_grid_time, returned_times[1:2])
+            @test_throws DimensionMismatch stretching_factor!(fill(NaN, 1, 1), FTLE_grid_time, returned_times)
+
             @test FTLE_from_particles!(FTLE_buffer, B_buffer, plonds_time, platds_time, times, 1, dist_km) === FTLE_buffer
             @test all(isnan, FTLE_buffer[:, 1])
             @test FTLE_buffer[:, 2:end] ≈ FTLE_grid_time[:, 2:end] rtol=1e-4 atol=1e-8

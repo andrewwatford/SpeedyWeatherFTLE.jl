@@ -13,11 +13,15 @@ negative_FTLE
 FTLEResult
 final_ftle
 final_ftle_field
+stretching_factor
+stretching_factor!
 ```
 
 ## Particle Post-Processing
 
 ```@docs
+initial_FTLE_particle_positions
+initial_FTLE_particle_positions!
 FTLE_from_particles
 FTLE_from_particles!
 FTLE_from_particle_file

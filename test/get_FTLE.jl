@@ -68,6 +68,13 @@ using InteractiveUtils
         @test isa(ftle_field(result), Field)
         @test length(final_ftle(result)) == result.spectral_grid.npoints
         @test isa(final_ftle_field(result), Field)
+        @test occursin("FTLEResult(", sprint(show, result))
+
+        result_display = sprint(show, MIME"text/plain"(), result)
+        @test occursin("grid points: $(result.spectral_grid.npoints)", result_display)
+        @test occursin("times: 2 (3.0 to 6.0 h)", result_display)
+        @test occursin("direction: positive", result_display)
+        @test !occursin("ftle:", result_display)
 
         negative_result, negative_stderr = capture_stderr() do
             negative_FTLE(

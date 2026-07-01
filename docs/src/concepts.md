@@ -12,6 +12,11 @@ Cauchy-Green tensor gives the FTLE.
 FTLE values returned by this package are in inverse hours because the particle
 output times are converted to hours before post-processing.
 
+Use [`stretching_factor`](@ref) to convert FTLE values back to the finite-time
+stretching factor `exp(FTLE * T)`. This dimensionless value is often easier to
+interpret: `2` means nearby particles separated by a factor of two over the
+selected integration time.
+
 ## Positive and Negative Direction
 
 Use [`positive_FTLE`](@ref) for forward-time FTLE and [`negative_FTLE`](@ref) for
