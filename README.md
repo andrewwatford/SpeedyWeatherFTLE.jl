@@ -26,6 +26,13 @@ Build it locally from the repository root with:
 julia --project=docs docs/make.jl
 ```
 
+## Examples
+
+See `examples/speedyweather_ftle_snapshots.ipynb` for a local notebook that runs
+and caches a dynamic SpeedyWeather flow simulation, plots the
+initial and evolved velocity components, and then compares initial and evolved
+FTLE fields for a user-selected integration horizon.
+
 ## Basic usage
 
 ```julia
