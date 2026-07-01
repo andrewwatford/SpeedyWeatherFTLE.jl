@@ -65,6 +65,11 @@ using InteractiveUtils
         @test result.time_hours == [3.0, 6.0]
         @test size(result, 1) == result.spectral_grid.npoints
         @test size(result, 2) == 2
+        @test axes(result) == axes(result.ftle)
+        @test length(result) == length(result.ftle)
+        @test eachindex(result) == eachindex(result.ftle)
+        @test eltype(result) == Float64
+        @test result[1, 1] == result.ftle[1, 1]
         @test isa(ftle_field(result), Field)
         @test length(final_ftle(result)) == result.spectral_grid.npoints
         @test isa(final_ftle_field(result), Field)
