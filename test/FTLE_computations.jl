@@ -1,4 +1,5 @@
 using LinearAlgebra
+using RingGrids
 using SpeedyWeather
 using SpeedyWeatherFTLE
 using Test
@@ -121,6 +122,29 @@ using Test
         SpeedyWeatherFTLE.perturb_positions_FTLE(particles, londs, latds, dist_km)
         @test [particle.lon for particle in particles] ≈ plonds
         @test [particle.lat for particle in particles] ≈ platds
+
+        grid = FullClenshawGrid(4)
+        grid_londs, grid_latds = RingGrids.get_londlatds(grid)
+        grid_plonds, grid_platds = initial_FTLE_particle_positions(grid, dist_km)
+        direct_grid_plonds, direct_grid_platds = initial_FTLE_particle_positions(grid_londs, grid_latds, dist_km)
+        @test grid_plonds ≈ direct_grid_plonds
+        @test grid_platds ≈ direct_grid_platds
+
+        spectral_grid = SpectralGrid(nlayers = 1, trunc = 4, Grid = FullClenshawGrid)
+        spectral_plonds, spectral_platds = initial_FTLE_particle_positions(spectral_grid, dist_km)
+        direct_spectral_plonds, direct_spectral_platds = initial_FTLE_particle_positions(
+            RingGrids.get_londlatds(spectral_grid.grid)...,
+            dist_km,
+        )
+        @test spectral_plonds ≈ direct_spectral_plonds
+        @test spectral_platds ≈ direct_spectral_platds
+
+        grid_plonds_buffer = fill(NaN, length(grid_plonds))
+        grid_platds_buffer = fill(NaN, length(grid_platds))
+        @test initial_FTLE_particle_positions!(grid_plonds_buffer, grid_platds_buffer, grid, dist_km) ===
+              (grid_plonds_buffer, grid_platds_buffer)
+        @test grid_plonds_buffer ≈ grid_plonds
+        @test grid_platds_buffer ≈ grid_platds
 
         @test_throws DimensionMismatch initial_FTLE_particle_positions(londs, latds[1:1], dist_km)
         @test_throws DimensionMismatch initial_FTLE_particle_positions!(plonds_buffer[1:end - 1], platds_buffer, londs, latds, dist_km)

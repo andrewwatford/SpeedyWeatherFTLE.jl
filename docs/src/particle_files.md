@@ -93,8 +93,7 @@ Use [`initial_FTLE_particle_positions`](@ref) to create the initial east, west,
 north, south release stencil for your own trajectory integrator:
 
 ```julia
-londs, latds = RingGrids.get_londlatds(spectral_grid.grid)
-initial_lon, initial_lat = initial_FTLE_particle_positions(londs, latds, dist_km)
+initial_lon, initial_lat = initial_FTLE_particle_positions(spectral_grid, dist_km)
 ```
 
 ```julia

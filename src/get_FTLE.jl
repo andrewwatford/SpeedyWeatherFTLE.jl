@@ -7,6 +7,7 @@ end
 
 """
     initial_FTLE_particle_positions!(plonds, platds, londs, latds, dist_km)
+    initial_FTLE_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km)
 
 Fill longitude and latitude arrays with the canonical four-particle FTLE
 release stencil around each grid point.
@@ -41,8 +42,14 @@ function initial_FTLE_particle_positions!(plonds, platds, londs, latds, dist_km)
     return plonds, platds
 end
 
+function initial_FTLE_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km)
+    londs, latds = RingGrids.get_londlatds(_spatial_grid(grid_or_spectral_grid))
+    return initial_FTLE_particle_positions!(plonds, platds, londs, latds, dist_km)
+end
+
 """
     initial_FTLE_particle_positions(londs, latds, dist_km)
+    initial_FTLE_particle_positions(grid_or_spectral_grid, dist_km)
 
 Return longitude and latitude vectors for the canonical four-particle FTLE
 release stencil around each grid point.
@@ -57,6 +64,13 @@ function initial_FTLE_particle_positions(londs, latds, dist_km)
     plonds = Vector{Float64}(undef, 4 * Npoints)
     platds = Vector{Float64}(undef, 4 * Npoints)
     return initial_FTLE_particle_positions!(plonds, platds, londs, latds, dist_km)
+end
+
+function initial_FTLE_particle_positions(grid_or_spectral_grid, dist_km)
+    npoints = _grid_npoints(grid_or_spectral_grid)
+    plonds = Vector{Float64}(undef, 4 * npoints)
+    platds = Vector{Float64}(undef, 4 * npoints)
+    return initial_FTLE_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km)
 end
 
 function perturb_positions_FTLE(particles, londs, latds, dist_km)
