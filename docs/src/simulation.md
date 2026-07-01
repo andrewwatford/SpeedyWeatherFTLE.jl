@@ -119,16 +119,20 @@ common_kwargs = (
 summer = positive_FTLE(summer_u, summer_v; common_kwargs..., dynamics = true)
 winter = positive_FTLE(winter_u, winter_v; common_kwargs..., dynamics = true)
 
+shared_colorrange = ftle_colorrange(final_ftle(summer), final_ftle(winter))
+
 fig_summer, ax_summer, sp_summer, cb_summer = surface_plot(
     summer;
     title = "Summer-like jet FTLE after $(only(summer.time_hours)) h",
     label = "FTLE [1/h]",
+    colorrange = shared_colorrange,
 )
 
 fig_winter, ax_winter, sp_winter, cb_winter = surface_plot(
     winter;
     title = "Winter-like jet FTLE after $(only(winter.time_hours)) h",
     label = "FTLE [1/h]",
+    colorrange = shared_colorrange,
 )
 
 display(fig_summer)
@@ -154,10 +158,13 @@ evolving = positive_FTLE(
     dynamics = true,
 )
 
+evolution_colorrange = ftle_colorrange(frozen, evolving)
+
 fig, ax, sp, cb = surface_plot(
     evolving;
     title = "Evolving-flow FTLE after $(only(evolving.time_hours)) h",
     label = "FTLE [1/h]",
+    colorrange = evolution_colorrange,
 )
 ```
 

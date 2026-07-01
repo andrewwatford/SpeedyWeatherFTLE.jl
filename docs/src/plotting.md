@@ -38,6 +38,16 @@ If you have an [`FTLEResult`](@ref), this is enough:
 fig, ax, sp, cb = surface_plot(result; label = "FTLE [1/h]")
 ```
 
+When comparing several FTLE fields, use [`ftle_colorrange`](@ref) so colors
+mean the same thing in each plot:
+
+```julia
+shared_colorrange = ftle_colorrange(final_ftle(summer), final_ftle(winter))
+
+surface_plot(summer; colorrange = shared_colorrange, label = "FTLE [1/h]")
+surface_plot(winter; colorrange = shared_colorrange, label = "FTLE [1/h]")
+```
+
 ## Plot Integration Horizons
 
 [`slider_plot`](@ref) accepts the result object directly or the tuple-style

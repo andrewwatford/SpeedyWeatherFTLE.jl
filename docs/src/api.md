@@ -32,6 +32,7 @@ FTLE_from_particle_file!
 
 ```@docs
 ftle_field
+ftle_colorrange
 surface_plot
 slider_plot
 SliderPlotHandle

@@ -17,6 +17,7 @@ include("grid_helpers.jl")
 include("./FTLE_computations.jl")
 include("visualization/ftle_field.jl")
 include("FTLE_result.jl")
+include("visualization/plot_helpers.jl")
 include("FTLE_diagnostics.jl")
 include("visualization/surface_plot.jl")
 include("visualization/slider_plot.jl")
@@ -27,6 +28,7 @@ export FTLEResult
 export final_ftle
 export final_ftle_field
 export ftle_field
+export ftle_colorrange
 export stretching_factor
 export stretching_factor!
 export FTLE_from_particles!
