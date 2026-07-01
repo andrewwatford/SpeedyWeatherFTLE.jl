@@ -48,11 +48,90 @@ function displacement_gradient_matrix_central(plonds, platds, dist_km)
     return B
 end
 
-@inline function _largest_cauchy_green_eigenvalue(a, b, c, d)
+@inline function _cauchy_green_invariants(a, b, c, d)
     C11 = a*a + c*c
     C12 = a*b + c*d
     C22 = b*b + d*d
-    return (C11 + C22 + sqrt((C11 - C22)^2 + 4C12^2)) / 2
+    trC = C11 + C22
+    discr = sqrt((C11 - C22)^2 + 4C12^2)
+    return trC, discr
+end
+
+@inline function _cauchy_green_eigenvalues(a, b, c, d)
+    trC, discr = _cauchy_green_invariants(a, b, c, d)
+    λmax = (trC + discr) / 2
+    λmin = max((trC - discr) / 2, zero(λmax))
+    return λmin, λmax
+end
+
+@inline _largest_cauchy_green_eigenvalue(a, b, c, d) = last(_cauchy_green_eigenvalues(a, b, c, d))
+
+"""
+    cauchy_green_eigenvalues_over_grid!(λmin_grid, λmax_grid, B)
+
+Compute the eigenvalues of the right Cauchy-Green deformation tensor `B'B` at
+each grid point and write them to `λmin_grid` and `λmax_grid`.
+
+This low-allocation diagnostic complements FTLE: `sqrt(λmax)` is the largest
+finite-time stretching factor, while `sqrt(λmin)` is the smallest. Values are
+clamped at zero only for the smaller eigenvalue to avoid tiny negative roundoff
+from nearly singular deformations.
+"""
+function cauchy_green_eigenvalues_over_grid!(λmin_grid, λmax_grid, B)
+    Ngpoints = size(B, 3)
+    length(λmin_grid) == Ngpoints || throw(DimensionMismatch("λmin_grid must have length $Ngpoints"))
+    length(λmax_grid) == Ngpoints || throw(DimensionMismatch("λmax_grid must have length $Ngpoints"))
+
+    @inbounds for k in 1:Ngpoints
+        λmin, λmax = _cauchy_green_eigenvalues(B[1, 1, k], B[1, 2, k], B[2, 1, k], B[2, 2, k])
+        λmin_grid[k] = λmin
+        λmax_grid[k] = λmax
+    end
+
+    return λmin_grid, λmax_grid
+end
+
+"""
+    cauchy_green_eigenvalues_over_grid(B)
+
+Allocating companion to [`cauchy_green_eigenvalues_over_grid!`](@ref). Returns
+`λmin_grid, λmax_grid`.
+"""
+function cauchy_green_eigenvalues_over_grid(B)
+    Ngpoints = size(B, 3)
+    λmin_grid = Vector{Float64}(undef, Ngpoints)
+    λmax_grid = Vector{Float64}(undef, Ngpoints)
+    return cauchy_green_eigenvalues_over_grid!(λmin_grid, λmax_grid, B)
+end
+
+"""
+    maximum_stretching_over_grid!(stretching_grid, B)
+
+Compute the largest finite-time stretching factor `sqrt(λmax(B'B))` at each
+grid point. This is equivalent to `exp(abs(T) * FTLE)` for nonzero integration
+time `T`, but remains a purely kinematic deformation diagnostic that does not
+require a time scale.
+"""
+function maximum_stretching_over_grid!(stretching_grid, B)
+    Ngpoints = size(B, 3)
+    length(stretching_grid) == Ngpoints || throw(DimensionMismatch("stretching_grid must have length $Ngpoints"))
+
+    @inbounds for k in 1:Ngpoints
+        λmax = _largest_cauchy_green_eigenvalue(B[1, 1, k], B[1, 2, k], B[2, 1, k], B[2, 2, k])
+        stretching_grid[k] = sqrt(λmax)
+    end
+
+    return stretching_grid
+end
+
+"""
+    maximum_stretching_over_grid(B)
+
+Allocating companion to [`maximum_stretching_over_grid!`](@ref).
+"""
+function maximum_stretching_over_grid(B)
+    stretching_grid = Vector{Float64}(undef, size(B, 3))
+    return maximum_stretching_over_grid!(stretching_grid, B)
 end
 
 function FTLE_over_grid!(FTLE_grid, B, T)
@@ -457,6 +536,10 @@ function FTLE_from_particle_file(
 end
 
 export Re
+export cauchy_green_eigenvalues_over_grid!
+export cauchy_green_eigenvalues_over_grid
+export maximum_stretching_over_grid!
+export maximum_stretching_over_grid
 export FTLE_from_particles!
 export FTLE_from_particles
 export FTLE_from_particle_file!

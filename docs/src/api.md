@@ -22,6 +22,10 @@ FTLE_from_particles
 FTLE_from_particles!
 FTLE_from_particle_file
 FTLE_from_particle_file!
+cauchy_green_eigenvalues_over_grid
+cauchy_green_eigenvalues_over_grid!
+maximum_stretching_over_grid
+maximum_stretching_over_grid!
 ```
 
 ## Fields and Plotting

@@ -26,6 +26,10 @@ export FTLEResult
 export final_ftle
 export final_ftle_field
 export ftle_field
+export cauchy_green_eigenvalues_over_grid!
+export cauchy_green_eigenvalues_over_grid
+export maximum_stretching_over_grid!
+export maximum_stretching_over_grid
 export FTLE_from_particles!
 export FTLE_from_particles
 export FTLE_from_particle_file!

@@ -58,6 +58,36 @@ using Test
         @test all(isnan, SpeedyWeatherFTLE.FTLE_over_grid(B, 0.0))
     end
 
+    @testset "Cauchy-Green stretching diagnostics" begin
+        B = exact_flow_maps(linear_systems, duration, 1)
+        expected_λmax = [maximum(svdvals(B[:, :, i]))^2 for i in axes(B, 3)]
+        expected_λmin = [minimum(svdvals(B[:, :, i]))^2 for i in axes(B, 3)]
+        expected_stretching = sqrt.(expected_λmax)
+
+        λmin = fill(NaN, length(linear_systems))
+        λmax = fill(NaN, length(linear_systems))
+        stretching = fill(NaN, length(linear_systems))
+
+        returned_λmin, returned_λmax = cauchy_green_eigenvalues_over_grid!(λmin, λmax, B)
+        @test returned_λmin === λmin
+        @test returned_λmax === λmax
+        @test λmin ≈ expected_λmin rtol=1e-12 atol=1e-12
+        @test λmax ≈ expected_λmax rtol=1e-12 atol=1e-12
+
+        allocated_λmin, allocated_λmax = cauchy_green_eigenvalues_over_grid(B)
+        @test allocated_λmin ≈ expected_λmin rtol=1e-12 atol=1e-12
+        @test allocated_λmax ≈ expected_λmax rtol=1e-12 atol=1e-12
+
+        @test maximum_stretching_over_grid!(stretching, B) === stretching
+        @test stretching ≈ expected_stretching rtol=1e-12 atol=1e-12
+        @test maximum_stretching_over_grid(B) ≈ expected_stretching rtol=1e-12 atol=1e-12
+        @test log.(stretching) ./ duration ≈ SpeedyWeatherFTLE.FTLE_over_grid(B, duration) rtol=1e-12 atol=1e-12
+
+        @test_throws DimensionMismatch cauchy_green_eigenvalues_over_grid!(λmin[1:end-1], λmax, B)
+        @test_throws DimensionMismatch cauchy_green_eigenvalues_over_grid!(λmin, λmax[1:end-1], B)
+        @test_throws DimensionMismatch maximum_stretching_over_grid!(stretching[1:end-1], B)
+    end
+
     @testset "wrapped longitude displacement gradient" begin
         # East-west particles can straddle 0/360 degrees; their central difference
         # should still reconstruct an identity deformation at release time.
