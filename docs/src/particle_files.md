@@ -89,6 +89,13 @@ If you already have particle trajectories in memory, call
 [`FTLE_from_particles`](@ref) directly. Longitude and latitude arrays must be
 shaped as `(particle, time)`, with four particles per FTLE grid point.
 
+Use [`initial_FTLE_particle_positions`](@ref) to create the initial east, west,
+north, south release stencil for your own trajectory integrator:
+
+```julia
+initial_lon, initial_lat = initial_FTLE_particle_positions(spectral_grid, dist_km)
+```
+
 ```julia
 FTLE_grid_time, selected_time_hours = FTLE_from_particles(
     particle_lon,

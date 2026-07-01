@@ -1,11 +1,18 @@
 # Plotting
 
-The plotting helpers convert FTLE vectors or time-series matrices into
+The plotting helpers convert FTLE vectors or integration-horizon matrices into
 `RingGrids.Field` objects and then interpolate them onto a regular longitude
 and latitude grid for GeoMakie.
 
-Use CairoMakie in scripts and documentation builds, or GLMakie locally when you
-want interactive windows.
+FTLE array and [`FTLEResult`](@ref) inputs label their colorbars as
+`FTLE [1/h]` by default. Static FTLE plots also choose finite-value color limits
+so `NaN` samples, such as the undefined zero-duration column, do not dominate
+the color scale. Generic `RingGrids.Field` inputs stay unlabeled unless you
+pass `label` or `colorbar_label` yourself.
+
+GLMakie is available for local interactive windows. The documentation build
+activates CairoMakie explicitly, which keeps GitHub Actions headless and still
+renders static figures and GIFs.
 
 ## Plot One Output Time
 
@@ -17,16 +24,44 @@ using CairoMakie
 using RingGrids
 using SpeedyWeatherFTLE
 
-spatial_grid = FullGaussianGrid(8)
+spatial_grid = FullGaussianGrid(16)
 londs, latds = RingGrids.get_londlatds(spatial_grid)
 
-synthetic_ftle = @. 0.015 + 0.005 * sind(latds)^2
+function turbulent_ftle(londs, latds, hour)
+    phase = hour / 6
+    meander = @. 32 + 8 * sind(2londs + 18phase)
+    jet = @. exp(-((latds - meander) / 11)^2)
+    shear_ridges = @. 0.010 * jet * (1 + 0.35 * cosd(5londs - 24phase))
+
+    eddies = zeros(Float64, length(londs))
+    for (lon0, lat0, width_lon, width_lat, spin) in (
+        (-150, -24, 20, 12, 1),
+        (-88, 18, 16, 10, -1),
+        (-22, -8, 18, 14, 1),
+        (44, 34, 22, 12, -1),
+        (118, -30, 20, 11, 1),
+        (158, 10, 15, 9, -1),
+    )
+        dlon = @. mod(londs - lon0 + 180, 360) - 180
+        dlat = @. latds - lat0
+        r2 = @. (dlon / width_lon)^2 + (dlat / width_lat)^2
+        eddies .+= @. 0.007 * exp(-r2) * (1 + 0.45 * cosd(4dlon + 3dlat - 30spin * phase))
+    end
+
+    filaments = @. 0.0045 * abs(sind(3londs + 2latds + 22phase)) * exp(-abs(latds) / 65)
+    growth = 1 - exp(-hour / 24)
+    return @. 0.002 + growth * (abs(shear_ridges) + abs(eddies) + filaments)
+end
+
+synthetic_ftle = turbulent_ftle(londs, latds, 24.0)
 
 fig, ax, sp, cb = surface_plot(
     synthetic_ftle,
     spatial_grid;
-    title = "Synthetic FTLE",
-    label = "FTLE [1/h]",
+    title = "Synthetic turbulent FTLE",
+    colormap = :magma,
+    coastline_color = :white,
+    coastline_linewidth = 0.8,
 )
 
 fig
@@ -35,24 +70,38 @@ fig
 If you have an [`FTLEResult`](@ref), this is enough:
 
 ```julia
-fig, ax, sp, cb = surface_plot(result; label = "FTLE [1/h]")
+fig, ax, sp, cb = surface_plot(result)
 ```
 
-## Plot a Time Series
+For one-off FTLE plots, the default finite color limits are usually enough.
+When comparing several FTLE fields, pass a shared [`ftle_colorrange`](@ref) so
+colors mean the same thing in each plot:
+
+```julia
+shared_colorrange = ftle_colorrange(final_ftle(summer), final_ftle(winter))
+
+surface_plot(summer; colorrange = shared_colorrange)
+surface_plot(winter; colorrange = shared_colorrange)
+```
+
+## Plot Integration Horizons
 
 [`slider_plot`](@ref) accepts the result object directly or the tuple-style
-output from [`get_FTLE`](@ref).
+output from [`get_FTLE`](@ref). The slider axis is the particle integration
+duration, not a conventional time series of instantaneous FTLE fields.
 
 ```@example plotting
-time_hours = [6.0, 12.0, 18.0]
-FTLE_grid_time = hcat(synthetic_ftle, 1.5 .* synthetic_ftle, 2 .* synthetic_ftle)
+time_hours = collect(6.0:6.0:72.0)
+FTLE_grid_time = hcat((turbulent_ftle(londs, latds, hour) for hour in time_hours)...)
 
 fig, ax, sp, cb = slider_plot(
     time_hours,
     FTLE_grid_time,
     spatial_grid;
-    title = "Synthetic FTLE time series",
-    colorbar_label = "FTLE [1/h]",
+    title = "Synthetic turbulent FTLE integration horizons",
+    colormap = :magma,
+    coastline_color = :white,
+    coastline_linewidth = 1.2,
 )
 
 fig
@@ -63,20 +112,39 @@ For result objects:
 ```julia
 fig, ax, sp, cb = slider_plot(
     result;
-    title = "FTLE time series",
-    colorbar_label = "FTLE [1/h]",
+    title = "FTLE integration horizons",
 )
 ```
 
 The zero-duration tracker sample is skipped by default because FTLE is
 undefined at `t = 0`. Pass `start_index = 1` if you explicitly want to include
-that column.
+that column. Slider plots show the active time above the slider by default; set
+`time_label = false` to hide it, or pass `time_label_format` to customize it.
+
+When you want to keep hold of the interactive controls, request a handle:
+
+```julia
+handle = slider_plot(result; return_handle = true)
+set_slider_time!(handle, 24)
+display(handle.fig)
+```
 
 ## Record a Slider Animation
 
 [`animate_slider_plot`](@ref) records an animation by advancing the same slider
 used by [`slider_plot`](@ref). The documentation build uses CairoMakie so this
 works in CI without opening a GL window.
+
+The embedded GIF below is generated by `docs/generate_assets.jl` from the same
+synthetic integration-horizon sequence used in this page.
+
+![Synthetic FTLE slider animation](assets/synthetic-ftle-slider.gif)
+
+Regenerate it from the repository root with:
+
+```bash
+julia --project=docs docs/generate_assets.jl
+```
 
 ```@example plotting
 animation_path = joinpath(mktempdir(), "synthetic-ftle-slider.gif")
@@ -86,10 +154,11 @@ animate_slider_plot(
     time_hours,
     FTLE_grid_time,
     spatial_grid;
-    framerate = 2,
-    title = "Synthetic FTLE animation",
-    colorbar_label = "FTLE [1/h]",
-    coastlines = false,
+    framerate = 6,
+    title = "Synthetic turbulent FTLE horizons",
+    colormap = :magma,
+    coastline_color = :white,
+    coastline_linewidth = 1.2,
 )
 
 isfile(animation_path), filesize(animation_path) > 0
@@ -102,8 +171,7 @@ using GLMakie
 
 fig, ax, sp, cb = slider_plot(
     result;
-    title = "Interactive FTLE time series",
-    colorbar_label = "FTLE [1/h]",
+    title = "Interactive FTLE integration horizons",
 )
 
 display(fig)
@@ -122,8 +190,10 @@ fig, ax, sp, cb = globe_plot(
     spatial_grid;
     lon = collect(-180:10:180),
     lat = collect(-90:10:90),
-    title = "Synthetic FTLE globe",
-    label = "FTLE [1/h]",
+    title = "Synthetic turbulent FTLE globe",
+    colormap = :magma,
+    coastline_color = :white,
+    coastline_linewidth = 1.2,
 )
 
 fig
@@ -132,7 +202,7 @@ fig
 The same overloads as [`surface_plot`](@ref) are available:
 
 ```julia
-globe_plot(result; label = "FTLE [1/h]")
+globe_plot(result)
 globe_plot(FTLE_grid_time, spectral_grid; time_index = 3)
 globe_plot(final_ftle(result), result.spectral_grid)
 ```
@@ -145,7 +215,6 @@ using GLMakie
 fig, ax, sp, cb = globe_plot(
     result;
     title = "Interactive FTLE globe",
-    label = "FTLE [1/h]",
 )
 
 display(fig)

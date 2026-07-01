@@ -38,8 +38,8 @@ result = positive_FTLE(
 size(result)
 ```
 
-The result stores the selected FTLE time series, the SpeedyWeather spectral grid,
-the selected output times in hours, and run metadata:
+The result stores the selected FTLE integration horizons, the SpeedyWeather
+spectral grid, the selected output times in hours, and run metadata:
 
 ```@example quickstart
 result.direction, result.time_hours, result.dist_km
@@ -58,9 +58,9 @@ fig, ax, sp, cb = surface_plot(
 fig
 ```
 
-For an interactive local time-series plot, use [`slider_plot`](@ref). In the
-static documentation build the slider is rendered but not interactive; with
-GLMakie locally it is interactive.
+For an interactive local integration-horizon plot, use [`slider_plot`](@ref).
+In the static documentation build the slider is rendered but not interactive;
+with GLMakie locally it is interactive.
 
 ```@example quickstart
 fig, ax, sp, cb = slider_plot(

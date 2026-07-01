@@ -12,6 +12,11 @@ Cauchy-Green tensor gives the FTLE.
 FTLE values returned by this package are in inverse hours because the particle
 output times are converted to hours before post-processing.
 
+Use [`stretching_factor`](@ref) to convert FTLE values back to the finite-time
+stretching factor `exp(FTLE * T)`. This dimensionless value is often easier to
+interpret: `2` means nearby particles separated by a factor of two over the
+selected integration time.
+
 ## Positive and Negative Direction
 
 Use [`positive_FTLE`](@ref) for forward-time FTLE and [`negative_FTLE`](@ref) for
@@ -52,6 +57,18 @@ Common selectors are:
 - `:last` or `:final`: compute only the final tracker sample.
 - `:` or `:all`: compute all tracker samples.
 - an integer, integer vector/range, or boolean mask: compute explicit samples.
+
+## FTLE Integration Horizons
+
+When you keep multiple tracker output times, the columns of `FTLE_grid_time`
+are FTLE estimates for different integration durations from the same particle
+release. They should not be interpreted as a conventional time series of
+instantaneous fields. A slider over those columns is best read as: "What
+stretching rate do I infer after integrating for 6 h, 12 h, 18 h, ...?"
+
+If you want to compare materially different flow states, run separate FTLE
+experiments, for example one initialized from a summer-like jet and one from a
+winter-like jet, or one with `dynamics = false` and one with `dynamics = true`.
 
 ## Exact In-Memory Example
 

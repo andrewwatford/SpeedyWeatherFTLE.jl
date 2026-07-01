@@ -1,15 +1,3 @@
-function _finite_absmax(data)
-    max_val = 0.0
-    found_finite = false
-    for value in data
-        if isfinite(value)
-            max_val = max(max_val, abs(float(value)))
-            found_finite = true
-        end
-    end
-    return found_finite && max_val > 0 ? max_val : 1.0
-end
-
 """
     SliderPlotHandle
 
@@ -18,16 +6,18 @@ Internal controls returned by [`slider_plot`](@ref) when
 
 The first four fields match the normal `slider_plot` return values:
 `fig, ax, sp, cb`. The remaining fields expose the `SliderGrid`, the active
-slider, and the plotted time values so helper functions such as
-[`animate_slider_plot`](@ref) can drive the same slider plot.
+slider, the optional live time label, and the plotted time values so helper
+functions such as [`set_slider_time!`](@ref) and [`animate_slider_plot`](@ref)
+can drive the same slider plot.
 """
-struct SliderPlotHandle{F, A, S, C, G, L, T}
+struct SliderPlotHandle{F, A, S, C, G, L, D, T}
     fig::F
     ax::A
     sp::S
     cb::C
     slidergrid::G
     slider::L
+    time_label::D
     times::T
 end
 
@@ -42,9 +32,14 @@ function _slider_plot_handle(
     title=nothing,
     colormap=:viridis,
     colorbar::Bool=true,
-    colorrange=nothing,
+    colorrange=:auto,
     colorbar_label=nothing, 
     coastlines::Bool=true,
+    coastline_color=:black,
+    coastline_linewidth=1,
+    coastline_kwargs=NamedTuple(),
+    time_label::Bool=true,
+    time_label_format=t -> "t = $(t) h",
     )
     # Number of time steps
     n_times = size(field_ts, 2)
@@ -61,27 +56,30 @@ function _slider_plot_handle(
         ax = GeoAxis(fig[1,1])
     end
 
-    # Construct the colorrange if not provided
-    if colorrange === nothing
-        max_val = _finite_absmax(field_ts)
-        colorrange = (-max_val, max_val)
-    end
-    # And the colorbar if requested
-    if colorbar
-        if colorbar_label === nothing
-            cb = Colorbar(fig[1, 2]; height=Relative(0.7), colorrange=colorrange)
-        else
-            cb = Colorbar(fig[1, 2]; label=colorbar_label, height=Relative(0.7), colorrange=colorrange)
-        end
-    else
-        cb = nothing
-    end
+    # Construct the colorrange if not provided.
+    resolved_colorrange = _resolve_colorrange(field_ts, colorrange)
 
     # Set up the slider
+    slider_layout = time_label ? GridLayout() : fig[2, 1]
+    if time_label
+        fig[2, 1] = slider_layout
+    end
     sg = SliderGrid(
-        fig[2, 1],
+        time_label ? slider_layout[2, 1] : slider_layout,
         (label = "Time [h]", range = 1:n_times, format = i -> "$(times[Int(i)]) h", startvalue = 1))
     sl = sg.sliders[1]
+
+    time_display = if time_label
+        Label(
+            slider_layout[1, 1],
+            lift(sl.value) do idx
+                string(time_label_format(times[Int(idx)]))
+            end;
+            tellwidth=false,
+        )
+    else
+        nothing
+    end
 
     # Define the lifted field data for the surface plot
     field_data = lift(sl.value) do idx
@@ -89,12 +87,26 @@ function _slider_plot_handle(
         interpolate(lon_vec, lat_vec, field)
     end
 
-    sp = surface!(ax, lon_vec, lat_vec, field_data; shading=shading, colormap=colormap, colorrange=colorrange)
+    sp = surface!(ax, lon_vec, lat_vec, field_data; shading=shading, colormap=colormap, colorrange=resolved_colorrange)
     if coastlines
-        lines!(ax, GeoMakie.coastlines(), color=:black, overdraw=true)
+        line_attributes = merge(
+            (; color=coastline_color, linewidth=coastline_linewidth, overdraw=true),
+            coastline_kwargs,
+        )
+        lines!(ax, GeoMakie.coastlines(); line_attributes...)
     end
 
-    return SliderPlotHandle(fig, ax, sp, cb, sg, sl, collect(times))
+    if colorbar
+        if colorbar_label === nothing
+            cb = Colorbar(fig[1, 2], sp; height=Relative(0.7))
+        else
+            cb = Colorbar(fig[1, 2], sp; label=colorbar_label, height=Relative(0.7))
+        end
+    else
+        cb = nothing
+    end
+
+    return SliderPlotHandle(fig, ax, sp, cb, sg, sl, time_display, collect(times))
 end
 
 """
@@ -102,12 +114,16 @@ end
     slider_plot(times, FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid; start_index = nothing, kwargs...)
     slider_plot(result::FTLEResult; kwargs...)
 
-Plot an FTLE time series with a Makie slider.
+Plot FTLE values for different integration horizons with a Makie slider.
 
 `slider_plot` accepts a time-dependent `RingGrids.Field`, the matrix returned by
 [`get_FTLE`](@ref), or an [`FTLEResult`](@ref). For FTLE arrays, the
 zero-duration sample is skipped by default because FTLE is undefined at
-`t = 0`; pass `start_index = 1` to include it.
+`t = 0`; pass `start_index = 1` to include it. For FTLE outputs, the slider
+shows different integration durations from the same particle release, not a
+time series of independent instantaneous FTLE fields. FTLE array and result
+inputs label the colorbar as `FTLE [1/h]` by default; pass
+`colorbar_label = nothing` to suppress it.
 
 # Keyword Arguments
 
@@ -117,9 +133,14 @@ zero-duration sample is skipped by default because FTLE is undefined at
 - `title = nothing`: optional plot title.
 - `colormap = :viridis`: Makie colormap.
 - `colorbar = true`: add a colorbar.
-- `colorrange = nothing`: color limits. When omitted, finite values determine a symmetric range.
-- `colorbar_label = nothing`: optional colorbar label.
+- `colorrange = :auto`: color limits. Use `:auto` or `nothing` for finite-value extrema, `:symmetric` for symmetric limits, or pass explicit limits.
+- `colorbar_label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
 - `coastlines = true`: draw GeoMakie coastlines.
+- `coastline_color = :black`: coastline color.
+- `coastline_linewidth = 1`: coastline line width.
+- `coastline_kwargs = (;)`: extra keyword arguments forwarded to `lines!`.
+- `time_label = true`: show a live label above the slider with the active time.
+- `time_label_format = t -> "t = \$(t) h"`: format the live time label.
 - `return_handle = false`: return a [`SliderPlotHandle`](@ref) with the slider
   controls instead of the usual four-value tuple.
 
@@ -165,7 +186,17 @@ function slider_plot(
 
     time_indices = start_index:lastindex(times)
     field_ts = ftle_field(view(FTLE_grid_time, :, time_indices), grid_or_spectral_grid)
-    return slider_plot(times[time_indices], field_ts; return_handle, kwargs...)
+    if :colorbar_label in keys(kwargs)
+        return slider_plot(times[time_indices], field_ts; return_handle, kwargs...)
+    else
+        return slider_plot(
+            times[time_indices],
+            field_ts;
+            return_handle,
+            colorbar_label=_FTLE_COLORBAR_LABEL,
+            kwargs...,
+        )
+    end
 end
 
 function slider_plot(
@@ -176,6 +207,33 @@ function slider_plot(
     Create a slider plot from an `FTLEResult`.
     """
     return slider_plot(result.time_hours, result.ftle, result.spectral_grid; kwargs...)
+end
+
+function _nearest_time_index(times, time_hour)
+    isempty(times) && throw(ArgumentError("slider handle has no times"))
+    nearest_index = firstindex(times)
+    nearest_distance = abs(times[nearest_index] - time_hour)
+    for index in Iterators.drop(eachindex(times), 1)
+        distance = abs(times[index] - time_hour)
+        if distance < nearest_distance
+            nearest_index = index
+            nearest_distance = distance
+        end
+    end
+    return nearest_index
+end
+
+"""
+    set_slider_time!(handle::SliderPlotHandle, time_hour)
+
+Move a slider plot to the saved time nearest to `time_hour`.
+
+Returns `handle`, so calls can be chained with display or animation code.
+"""
+function set_slider_time!(handle::SliderPlotHandle, time_hour::Real)
+    time_index = _nearest_time_index(handle.times, time_hour)
+    Makie.set_close_to!(handle.slider, time_index)
+    return handle
 end
 
 function _record_slider_animation!(record_function, path, handle::SliderPlotHandle, frames; framerate, record_kwargs)
@@ -255,4 +313,5 @@ end
 
 export slider_plot
 export SliderPlotHandle
+export set_slider_time!
 export animate_slider_plot

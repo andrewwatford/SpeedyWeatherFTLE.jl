@@ -1,3 +1,78 @@
+function _check_initial_FTLE_positions(londs, latds, dist_km)
+    Npoints = length(londs)
+    length(latds) == Npoints || throw(DimensionMismatch("londs and latds must have the same length"))
+    dist_km > 0 || throw(ArgumentError("dist_km must be positive"))
+    return Npoints, rad2deg(dist_km * 1000 / Re)
+end
+
+"""
+    initial_FTLE_particle_positions!(plonds, platds, londs, latds, dist_km)
+    initial_FTLE_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km)
+
+Fill longitude and latitude arrays with the canonical four-particle FTLE
+release stencil around each grid point.
+
+Particles are written in east, west, north, south order for each grid point,
+matching [`FTLE_from_particles`](@ref), [`FTLE_from_particle_file`](@ref), and
+SpeedyWeather's `ParticleTracker` post-processing. `plonds` and `platds` must
+each contain four entries per grid point.
+"""
+function initial_FTLE_particle_positions!(plonds, platds, londs, latds, dist_km)
+    Npoints, del_lat = _check_initial_FTLE_positions(londs, latds, dist_km)
+    length(plonds) == 4 * Npoints || throw(DimensionMismatch("plonds must contain four entries per grid point"))
+    length(platds) == 4 * Npoints || throw(DimensionMismatch("platds must contain four entries per grid point"))
+
+    @inbounds for i in 1:Npoints
+        p = 4i
+        del_lon = del_lat / cosd(latds[i])
+
+        plonds[p - 3] = londs[i] + del_lon
+        platds[p - 3] = latds[i]
+
+        plonds[p - 2] = londs[i] - del_lon
+        platds[p - 2] = latds[i]
+
+        plonds[p - 1] = londs[i]
+        platds[p - 1] = latds[i] + del_lat
+
+        plonds[p] = londs[i]
+        platds[p] = latds[i] - del_lat
+    end
+
+    return plonds, platds
+end
+
+function initial_FTLE_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km)
+    londs, latds = RingGrids.get_londlatds(_spatial_grid(grid_or_spectral_grid))
+    return initial_FTLE_particle_positions!(plonds, platds, londs, latds, dist_km)
+end
+
+"""
+    initial_FTLE_particle_positions(londs, latds, dist_km)
+    initial_FTLE_particle_positions(grid_or_spectral_grid, dist_km)
+
+Return longitude and latitude vectors for the canonical four-particle FTLE
+release stencil around each grid point.
+
+The returned vectors have length `4length(londs)`. For each grid point, entries
+are ordered east, west, north, south, which is the layout expected by
+[`FTLE_from_particles`](@ref), [`FTLE_from_particle_file`](@ref), and
+SpeedyWeatherFTLE's displacement-gradient reconstruction.
+"""
+function initial_FTLE_particle_positions(londs, latds, dist_km)
+    Npoints = length(londs)
+    plonds = Vector{Float64}(undef, 4 * Npoints)
+    platds = Vector{Float64}(undef, 4 * Npoints)
+    return initial_FTLE_particle_positions!(plonds, platds, londs, latds, dist_km)
+end
+
+function initial_FTLE_particle_positions(grid_or_spectral_grid, dist_km)
+    npoints = _grid_npoints(grid_or_spectral_grid)
+    plonds = Vector{Float64}(undef, 4 * npoints)
+    platds = Vector{Float64}(undef, 4 * npoints)
+    return initial_FTLE_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km)
+end
+
 function perturb_positions_FTLE(particles, londs, latds, dist_km)
     """
     Sets up the initial positions of particles for calculating the FTLE
@@ -10,21 +85,15 @@ function perturb_positions_FTLE(particles, londs, latds, dist_km)
     dist_km: perturbation to apply in km
     """
 
-    Npoints = length(londs) # Number of grid points
-    length(latds) == Npoints || throw(DimensionMismatch("londs and latds must have the same length"))
+    Npoints, del_lat = _check_initial_FTLE_positions(londs, latds, dist_km)
     length(particles) == 4 * Npoints || throw(DimensionMismatch("particles must contain four particles per grid point"))
-
-    del_lat = rad2deg((dist_km * 1000 / Re)) # Latitude perturbation in degrees
 
     @inbounds for i in 1:Npoints
         p = 4i
         del_lon = del_lat / cosd(latds[i])
 
-        # Perturbed East/West
         particles[p - 3] = Particle(londs[i] + del_lon, latds[i])
         particles[p - 2] = Particle(londs[i] - del_lon, latds[i])
-
-        # Perturbed North/South
         particles[p - 1] = Particle(londs[i], latds[i] + del_lat)
         particles[p] = Particle(londs[i], latds[i] - del_lat)
     end
@@ -173,12 +242,8 @@ function get_FTLE(
     if model_type != BarotropicModel
         @warn "get_FTLE currently only tested with BarotropicModel. Unexpected behaviour may occur."
     end
-    model = with_logger(ConsoleLogger(stderr, Logging.Warn)) do
-        model_type(spectral_grid; dynamics=dynamics, particle_advection=particle_advection)
-    end
-    simulation = with_logger(ConsoleLogger(stderr, Logging.Warn)) do
-        initialize!(model)
-    end
+    model = model_type(spectral_grid; dynamics=dynamics, particle_advection=particle_advection)
+    simulation = initialize!(model)
 
     particle_tracker = ParticleTracker(
         spectral_grid;
@@ -198,14 +263,12 @@ function get_FTLE(
 
     # SpeedyWeather.initialize!(simulation) transforms model prognostics to grid space,
     # so apply the prescribed static grid velocities after that initialization step.
-    with_logger(ConsoleLogger(stderr, Logging.Warn)) do
-        SpeedyWeather.initialize!(simulation; period=Day(simulation_days), output=false)
-        simulation.variables.grid.u[:, 1, 1] .= u
-        simulation.variables.grid.v[:, 1, 1] .= v
-        SpeedyWeather.initialize!(simulation.variables, particles, model)
-        SpeedyWeather.time_stepping!(simulation)
-        SpeedyWeather.finalize!(simulation)
-    end
+    SpeedyWeather.initialize!(simulation; period=Day(simulation_days))
+    simulation.variables.grid.u[:, 1, 1] .= u
+    simulation.variables.grid.v[:, 1, 1] .= v
+    SpeedyWeather.initialize!(simulation.variables, particles, model)
+    SpeedyWeather.time_stepping!(simulation)
+    SpeedyWeather.finalize!(simulation)
 
     ### Calculate time-dependent FTLE ###
 
@@ -279,6 +342,8 @@ function negative_FTLE(u::Field, v::Field; kwargs...)
 end
 
 export get_FTLE
+export initial_FTLE_particle_positions!
+export initial_FTLE_particle_positions
 export positive_FTLE
 export negative_FTLE
 export Re

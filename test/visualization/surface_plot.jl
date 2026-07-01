@@ -31,6 +31,8 @@ using SpeedyWeatherFTLE
     @testset "FTLE matrix overload" begin
         spectral_grid = SpectralGrid(nlayers=1, trunc=6, Grid=FullGaussianGrid)
         FTLE = rand(spectral_grid.npoints, 4)
+        FTLE_with_nan = copy(FTLE)
+        FTLE_with_nan[1] = NaN
         field = ftle_field(FTLE, spectral_grid)
         final_field = ftle_field(FTLE[:, end], spectral_grid)
         result = FTLEResult(
@@ -55,6 +57,12 @@ using SpeedyWeatherFTLE
         @test ftle_field(result; time_indices = :nonzero) == ftle_field(view(FTLE, :, 2:4), spectral_grid)
         @test_throws DimensionMismatch ftle_field(FTLE[1:end - 1, end], spectral_grid)
         @test_throws ArgumentError ftle_field(result; time_indices = :middle)
+        finite_FTLE = filter(isfinite, vec(FTLE_with_nan))
+        @test ftle_colorrange(FTLE_with_nan) == (minimum(finite_FTLE), maximum(finite_FTLE))
+        @test ftle_colorrange(result) == ftle_colorrange(FTLE)
+        @test ftle_colorrange([-2.0, 1.0]; symmetric = true) == (-2.0, 2.0)
+        @test collect(ftle_colorrange([1.0]; pad = 0.2)) ≈ [0.94, 1.06]
+        @test_throws ArgumentError ftle_colorrange(FTLE; pad = -0.1)
 
         fig, ax, sp, cb = surface_plot(
             FTLE,
@@ -74,6 +82,49 @@ using SpeedyWeatherFTLE
         @test ax.title[] == title
         @test_throws BoundsError surface_plot(FTLE, spectral_grid; time_index = 0)
 
+        shared_colorrange = (0.0, 1.0)
+        fig, ax, sp, cb = surface_plot(
+            FTLE,
+            spectral_grid;
+            time_index = 4,
+            colorrange = shared_colorrange,
+            coastlines = false,
+            axis_kwargs = (; xlabel = "longitude"),
+            surface_kwargs = (; transparency = false),
+            colorbar_kwargs = (; vertical = true),
+        )
+
+        @test sp.colorrange[] == collect(shared_colorrange)
+        @test ax.xlabel[] == "longitude"
+
+        fig, ax, sp, cb = surface_plot(
+            FTLE[:, end],
+            spectral_grid;
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test cb.label[] == "FTLE [1/h]"
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(FTLE[:, end]))
+
+        fig, ax, sp, cb = surface_plot(
+            FTLE_with_nan,
+            spectral_grid;
+            time_index = 1,
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE_with_nan, :, 1)))
+
         fig, ax, sp, cb = surface_plot(
             FTLE[:, end],
             spectral_grid;
@@ -87,6 +138,19 @@ using SpeedyWeatherFTLE
         @test isa(sp, GeoMakie.Surface)
         @test cb === nothing
         @test ax.title[] == title
+
+        fig, ax, sp, cb = surface_plot(
+            result;
+            time_index = 3,
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test cb.label[] == "FTLE [1/h]"
 
         fig, ax, sp, cb = surface_plot(
             result;

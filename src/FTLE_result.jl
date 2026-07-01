@@ -6,7 +6,9 @@ Container returned by [`get_FTLE`](@ref), [`positive_FTLE`](@ref), or
 
 The result stores the FTLE matrix, the `SpectralGrid` used for the particle
 tracking run, selected output times in hours, and metadata needed for plotting
-or reusing saved particle files.
+or reusing saved particle files. `FTLEResult` supports array-like `size`,
+`axes`, `length`, `eachindex`, `eltype`, and `getindex` by forwarding to its
+`ftle` matrix.
 
 # Fields
 
@@ -82,6 +84,50 @@ final_ftle_field(result::FTLEResult) = ftle_field(result; time_indices=:last)
 
 Base.size(result::FTLEResult) = size(result.ftle)
 Base.size(result::FTLEResult, dim::Integer) = size(result.ftle, dim)
+Base.axes(result::FTLEResult) = axes(result.ftle)
+Base.axes(result::FTLEResult, dim::Integer) = axes(result.ftle, dim)
+Base.length(result::FTLEResult) = length(result.ftle)
+Base.eachindex(result::FTLEResult) = eachindex(result.ftle)
+Base.eltype(result::Type{<:FTLEResult{F}}) where {F} = eltype(F)
+Base.getindex(result::FTLEResult, indices...) = getindex(result.ftle, indices...)
+
+function _time_hours_summary(time_hours)
+    if isempty(time_hours)
+        return "none"
+    elseif length(time_hours) == 1
+        return "$(only(time_hours)) h"
+    else
+        return "$(first(time_hours)) to $(last(time_hours)) h"
+    end
+end
+
+function Base.show(io::IO, result::FTLEResult)
+    npoints, ntimes = size(result.ftle)
+    print(
+        io,
+        "FTLEResult(",
+        npoints,
+        " grid points, ",
+        ntimes,
+        " times, direction=",
+        result.direction,
+        ", time_hours=",
+        _time_hours_summary(result.time_hours),
+        ")",
+    )
+end
+
+function Base.show(io::IO, ::MIME"text/plain", result::FTLEResult)
+    npoints, ntimes = size(result.ftle)
+    println(io, "FTLEResult")
+    println(io, "  grid points: ", npoints)
+    println(io, "  times: ", ntimes, " (", _time_hours_summary(result.time_hours), ")")
+    println(io, "  direction: ", result.direction)
+    println(io, "  dist_km: ", result.dist_km)
+    println(io, "  dynamics: ", result.dynamics)
+    println(io, "  rint_hours: ", result.rint_hours)
+    print(io, "  particle_file_path: ", result.particle_file_path === nothing ? "nothing" : result.particle_file_path)
+end
 
 export FTLEResult
 export final_ftle

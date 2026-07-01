@@ -9,7 +9,10 @@ Plot one FTLE field on a geographic Makie axis.
 `surface_plot` accepts an existing `RingGrids.Field`, a single-time FTLE
 vector, the matrix returned by [`get_FTLE`](@ref), or an [`FTLEResult`](@ref).
 For array inputs, pass either the `SpectralGrid` returned by the simulation API
-or its spatial grid.
+or its spatial grid. FTLE array and result inputs label the colorbar as
+`FTLE [1/h]` and use finite FTLE color limits by default; pass
+`label = nothing` to suppress the label or `colorrange = nothing` for Makie
+autoscaling.
 
 # Keyword Arguments
 
@@ -18,9 +21,17 @@ or its spatial grid.
 - `shading = NoShading`: Makie surface shading option.
 - `title = nothing`: optional plot title.
 - `colormap = :viridis`: Makie colormap.
+- `colorrange = nothing`: optional color limits for `Field` inputs; FTLE inputs default to finite-value extrema. Use [`ftle_colorrange`](@ref) for comparable plots.
 - `colorbar = true`: add a colorbar.
-- `label = nothing`: optional colorbar label.
+- `label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
 - `coastlines = true`: draw GeoMakie coastlines.
+- `coastline_color = :black`: coastline color.
+- `coastline_linewidth = 1`: coastline line width.
+- `figure_kwargs = (;)`: extra keyword arguments forwarded to `Figure`.
+- `axis_kwargs = (;)`: extra keyword arguments forwarded to `GeoAxis`.
+- `surface_kwargs = (;)`: extra keyword arguments forwarded to `surface!`.
+- `colorbar_kwargs = (;)`: extra keyword arguments forwarded to `Colorbar`.
+- `coastline_kwargs = (;)`: extra keyword arguments forwarded to `lines!`.
 
 # Returns
 
@@ -33,9 +44,17 @@ function surface_plot(
     shading=NoShading, 
     title=nothing,
     colormap=:viridis,
+    colorrange=nothing,
     colorbar::Bool=true,
     label=nothing, 
     coastlines::Bool=true,
+    coastline_color=:black,
+    coastline_linewidth=1,
+    figure_kwargs=NamedTuple(),
+    axis_kwargs=NamedTuple(),
+    surface_kwargs=NamedTuple(),
+    colorbar_kwargs=NamedTuple(),
+    coastline_kwargs=NamedTuple(),
     )
     """
     Create a surface plot of a 2D field on a geographic axis. Currently supports only the default projection in GeoMakie.
@@ -47,6 +66,7 @@ function surface_plot(
     - `shading`: Shading option for the surface plot (default: `NoShading`).
     - `title`: Title of the plot. (default: `nothing`).
     - `colormap`: Colormap to use for the surface plot. (default: `:viridis`).
+    - `colorrange`: Optional color limits.
     - `colorbar::Bool`: Whether to include a colorbar in the plot. (default: `true`).
     - `label`: Label for the colorbar. (default: `nothing`).
     - `coastlines::Bool`: Whether to add coastlines to the plot. (default: `true`).
@@ -60,21 +80,28 @@ function surface_plot(
     lon_vec = vec([lo for lo in lon, la in lat])
     lat_vec = vec([la for lo in lon, la in lat])
     field_data = interpolate(lon_vec, lat_vec, field)
-    fig = Figure()
-    if title !== nothing
-        ax = GeoAxis(fig[1,1]; title=title)
-    else
-        ax = GeoAxis(fig[1,1])
+    fig = Figure(; figure_kwargs...)
+    axis_attributes = title === nothing ? axis_kwargs : merge((; title), axis_kwargs)
+    ax = GeoAxis(fig[1,1]; axis_attributes...)
+
+    surface_attributes = merge((; shading, colormap), surface_kwargs)
+    if colorrange !== nothing
+        surface_attributes = merge(surface_attributes, (; colorrange))
     end
-    sp = surface!(ax, lon_vec, lat_vec, field_data; shading=shading, colormap=colormap)
+    sp = surface!(ax, lon_vec, lat_vec, field_data; surface_attributes...)
     if coastlines
-        lines!(ax, GeoMakie.coastlines(), color=:black, overdraw=true)
+        line_attributes = merge(
+            (; color=coastline_color, linewidth=coastline_linewidth, overdraw=true),
+            coastline_kwargs,
+        )
+        lines!(ax, GeoMakie.coastlines(); line_attributes...)
     end
     if colorbar
+        colorbar_attributes = merge((; height=Relative(0.7)), colorbar_kwargs)
         if label === nothing
-            cb = Colorbar(fig[1, 2], sp; height=Relative(0.7))
+            cb = Colorbar(fig[1, 2], sp; colorbar_attributes...)
         else
-            cb = Colorbar(fig[1, 2], sp; label=label, height=Relative(0.7))
+            cb = Colorbar(fig[1, 2], sp; label, colorbar_attributes...)
         end
     else
         cb = nothing
@@ -94,7 +121,14 @@ function surface_plot(
     `get_FTLE` or its spatial grid.
     """
     field = ftle_field(FTLE_grid, grid_or_spectral_grid)
-    return surface_plot(field; kwargs...)
+    plot_kwargs = (; kwargs...)
+    if !(:label in keys(plot_kwargs))
+        plot_kwargs = merge((; label=_FTLE_COLORBAR_LABEL), plot_kwargs)
+    end
+    if !(:colorrange in keys(plot_kwargs))
+        plot_kwargs = merge((; colorrange=ftle_colorrange(FTLE_grid)), plot_kwargs)
+    end
+    return surface_plot(field; plot_kwargs...)
 end
 
 function surface_plot(
@@ -113,8 +147,16 @@ function surface_plot(
     1 <= time_index <= size(FTLE_grid_time, 2) ||
         throw(BoundsError(FTLE_grid_time, (:, time_index)))
 
-    field = ftle_field(view(FTLE_grid_time, :, time_index), grid_or_spectral_grid)
-    return surface_plot(field; kwargs...)
+    ftle_values = view(FTLE_grid_time, :, time_index)
+    field = ftle_field(ftle_values, grid_or_spectral_grid)
+    plot_kwargs = (; kwargs...)
+    if !(:label in keys(plot_kwargs))
+        plot_kwargs = merge((; label=_FTLE_COLORBAR_LABEL), plot_kwargs)
+    end
+    if !(:colorrange in keys(plot_kwargs))
+        plot_kwargs = merge((; colorrange=ftle_colorrange(ftle_values)), plot_kwargs)
+    end
+    return surface_plot(field; plot_kwargs...)
 end
 
 function surface_plot(

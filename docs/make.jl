@@ -2,6 +2,8 @@ using CairoMakie
 using Documenter
 using SpeedyWeatherFTLE
 
+CairoMakie.activate!()
+
 makedocs(
     sitename = "SpeedyWeatherFTLE",
     modules = [SpeedyWeatherFTLE],

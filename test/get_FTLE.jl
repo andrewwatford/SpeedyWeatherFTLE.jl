@@ -55,7 +55,7 @@ using InteractiveUtils
         end
 
         @test isa(result, FTLEResult)
-        @test !occursin("Time step changed", positive_stderr)
+        @test occursin("Time step changed", positive_stderr)
         @test result.particle_file_path === nothing
         @test result.dist_km == 10
         @test result.backwards == false
@@ -65,9 +65,21 @@ using InteractiveUtils
         @test result.time_hours == [3.0, 6.0]
         @test size(result, 1) == result.spectral_grid.npoints
         @test size(result, 2) == 2
+        @test axes(result) == axes(result.ftle)
+        @test length(result) == length(result.ftle)
+        @test eachindex(result) == eachindex(result.ftle)
+        @test eltype(result) == Float64
+        @test result[1, 1] == result.ftle[1, 1]
         @test isa(ftle_field(result), Field)
         @test length(final_ftle(result)) == result.spectral_grid.npoints
         @test isa(final_ftle_field(result), Field)
+        @test occursin("FTLEResult(", sprint(show, result))
+
+        result_display = sprint(show, MIME"text/plain"(), result)
+        @test occursin("grid points: $(result.spectral_grid.npoints)", result_display)
+        @test occursin("times: 2 (3.0 to 6.0 h)", result_display)
+        @test occursin("direction: positive", result_display)
+        @test !occursin("ftle:", result_display)
 
         negative_result, negative_stderr = capture_stderr() do
             negative_FTLE(
@@ -83,7 +95,7 @@ using InteractiveUtils
         end
 
         @test isa(negative_result, FTLEResult)
-        @test !occursin("Time step changed", negative_stderr)
+        @test occursin("Time step changed", negative_stderr)
         @test negative_result.backwards == true
         @test negative_result.direction == :negative
         @test negative_result.time_hours == [6.0]
