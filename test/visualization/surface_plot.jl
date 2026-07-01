@@ -100,6 +100,19 @@ using SpeedyWeatherFTLE
         fig, ax, sp, cb = surface_plot(
             FTLE[:, end],
             spectral_grid;
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test cb.label[] == "FTLE [1/h]"
+
+        fig, ax, sp, cb = surface_plot(
+            FTLE[:, end],
+            spectral_grid;
             title = title,
             colorbar = false,
             coastlines = false,
@@ -110,6 +123,19 @@ using SpeedyWeatherFTLE
         @test isa(sp, GeoMakie.Surface)
         @test cb === nothing
         @test ax.title[] == title
+
+        fig, ax, sp, cb = surface_plot(
+            result;
+            time_index = 3,
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test cb.label[] == "FTLE [1/h]"
 
         fig, ax, sp, cb = surface_plot(
             result;

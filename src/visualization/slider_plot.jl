@@ -114,7 +114,9 @@ Plot FTLE values for different integration horizons with a Makie slider.
 zero-duration sample is skipped by default because FTLE is undefined at
 `t = 0`; pass `start_index = 1` to include it. For FTLE outputs, the slider
 shows different integration durations from the same particle release, not a
-time series of independent instantaneous FTLE fields.
+time series of independent instantaneous FTLE fields. FTLE array and result
+inputs label the colorbar as `FTLE [1/h]` by default; pass
+`colorbar_label = nothing` to suppress it.
 
 # Keyword Arguments
 
@@ -125,7 +127,7 @@ time series of independent instantaneous FTLE fields.
 - `colormap = :viridis`: Makie colormap.
 - `colorbar = true`: add a colorbar.
 - `colorrange = :auto`: color limits. Use `:auto` or `nothing` for finite-value extrema, `:symmetric` for symmetric limits, or pass explicit limits.
-- `colorbar_label = nothing`: optional colorbar label.
+- `colorbar_label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
 - `coastlines = true`: draw GeoMakie coastlines.
 - `time_label = true`: show a live label above the slider with the active time.
 - `time_label_format = t -> "t = \$(t) h"`: format the live time label.
@@ -174,7 +176,17 @@ function slider_plot(
 
     time_indices = start_index:lastindex(times)
     field_ts = ftle_field(view(FTLE_grid_time, :, time_indices), grid_or_spectral_grid)
-    return slider_plot(times[time_indices], field_ts; return_handle, kwargs...)
+    if :colorbar_label in keys(kwargs)
+        return slider_plot(times[time_indices], field_ts; return_handle, kwargs...)
+    else
+        return slider_plot(
+            times[time_indices],
+            field_ts;
+            return_handle,
+            colorbar_label=_FTLE_COLORBAR_LABEL,
+            kwargs...,
+        )
+    end
 end
 
 function slider_plot(

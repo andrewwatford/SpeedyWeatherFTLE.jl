@@ -14,7 +14,9 @@ Plot one FTLE field on an interactive GeoMakie `GlobeAxis`.
 
 With `GLMakie` active, the returned globe can be rotated and zoomed
 interactively. With `CairoMakie`, the same function renders a static globe,
-which is useful for documentation builds and CI.
+which is useful for documentation builds and CI. FTLE array and result inputs
+label the colorbar as `FTLE [1/h]` by default; pass `label = nothing` to
+suppress it.
 
 # Keyword Arguments
 
@@ -25,7 +27,7 @@ which is useful for documentation builds and CI.
 - `colormap = :viridis`: Makie colormap.
 - `colorrange = nothing`: optional color limits.
 - `colorbar = true`: add a colorbar.
-- `label = nothing`: optional colorbar label.
+- `label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
 - `coastlines = true`: draw GeoMakie coastlines on the globe.
 - `coastline_color = :black`: coastline color.
 - `coastline_linewidth = 1`: coastline line width.
@@ -114,7 +116,11 @@ function globe_plot(
     kwargs...
     )
     field = ftle_field(FTLE_grid, grid_or_spectral_grid)
-    return globe_plot(field; kwargs...)
+    if :label in keys(kwargs)
+        return globe_plot(field; kwargs...)
+    else
+        return globe_plot(field; label=_FTLE_COLORBAR_LABEL, kwargs...)
+    end
 end
 
 function globe_plot(
@@ -127,7 +133,11 @@ function globe_plot(
         throw(BoundsError(FTLE_grid_time, (:, time_index)))
 
     field = ftle_field(view(FTLE_grid_time, :, time_index), grid_or_spectral_grid)
-    return globe_plot(field; kwargs...)
+    if :label in keys(kwargs)
+        return globe_plot(field; kwargs...)
+    else
+        return globe_plot(field; label=_FTLE_COLORBAR_LABEL, kwargs...)
+    end
 end
 
 function globe_plot(

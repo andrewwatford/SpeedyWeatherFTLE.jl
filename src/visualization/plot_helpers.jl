@@ -4,6 +4,8 @@ end
 
 _plot_values(result::FTLEResult) = result.ftle
 
+const _FTLE_COLORBAR_LABEL = "FTLE [1/h]"
+
 """
     ftle_colorrange(data...; symmetric = false, pad = 0)
 

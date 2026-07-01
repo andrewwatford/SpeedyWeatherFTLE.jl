@@ -55,7 +55,7 @@ using InteractiveUtils
         end
 
         @test isa(result, FTLEResult)
-        @test !occursin("Time step changed", positive_stderr)
+        @test occursin("Time step changed", positive_stderr)
         @test result.particle_file_path === nothing
         @test result.dist_km == 10
         @test result.backwards == false
@@ -95,7 +95,7 @@ using InteractiveUtils
         end
 
         @test isa(negative_result, FTLEResult)
-        @test !occursin("Time step changed", negative_stderr)
+        @test occursin("Time step changed", negative_stderr)
         @test negative_result.backwards == true
         @test negative_result.direction == :negative
         @test negative_result.time_hours == [6.0]

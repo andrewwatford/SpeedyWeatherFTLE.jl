@@ -9,6 +9,9 @@ The fields are passed to SpeedyWeather, particles are released around every grid
 point, a `ParticleTracker` writes trajectories, and SpeedyWeatherFTLE
 post-processes those trajectories into FTLE values.
 
+Simulation progress and warnings use SpeedyWeather's normal output behavior, so
+longer particle-tracking runs remain transparent in scripts and notebooks.
+
 ## Positive-Time FTLE
 
 ```julia
@@ -124,14 +127,12 @@ shared_colorrange = ftle_colorrange(final_ftle(summer), final_ftle(winter))
 fig_summer, ax_summer, sp_summer, cb_summer = surface_plot(
     summer;
     title = "Summer-like jet FTLE after $(only(summer.time_hours)) h",
-    label = "FTLE [1/h]",
     colorrange = shared_colorrange,
 )
 
 fig_winter, ax_winter, sp_winter, cb_winter = surface_plot(
     winter;
     title = "Winter-like jet FTLE after $(only(winter.time_hours)) h",
-    label = "FTLE [1/h]",
     colorrange = shared_colorrange,
 )
 
@@ -163,7 +164,6 @@ evolution_colorrange = ftle_colorrange(frozen, evolving)
 fig, ax, sp, cb = surface_plot(
     evolving;
     title = "Evolving-flow FTLE after $(only(evolving.time_hours)) h",
-    label = "FTLE [1/h]",
     colorrange = evolution_colorrange,
 )
 ```

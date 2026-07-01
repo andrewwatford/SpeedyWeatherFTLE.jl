@@ -9,7 +9,8 @@ Plot one FTLE field on a geographic Makie axis.
 `surface_plot` accepts an existing `RingGrids.Field`, a single-time FTLE
 vector, the matrix returned by [`get_FTLE`](@ref), or an [`FTLEResult`](@ref).
 For array inputs, pass either the `SpectralGrid` returned by the simulation API
-or its spatial grid.
+or its spatial grid. FTLE array and result inputs label the colorbar as
+`FTLE [1/h]` by default; pass `label = nothing` to suppress it.
 
 # Keyword Arguments
 
@@ -20,7 +21,7 @@ or its spatial grid.
 - `colormap = :viridis`: Makie colormap.
 - `colorrange = nothing`: optional color limits. Use [`ftle_colorrange`](@ref) for comparable plots.
 - `colorbar = true`: add a colorbar.
-- `label = nothing`: optional colorbar label.
+- `label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
 - `coastlines = true`: draw GeoMakie coastlines.
 - `coastline_color = :black`: coastline color.
 - `coastline_linewidth = 1`: coastline line width.
@@ -118,7 +119,11 @@ function surface_plot(
     `get_FTLE` or its spatial grid.
     """
     field = ftle_field(FTLE_grid, grid_or_spectral_grid)
-    return surface_plot(field; kwargs...)
+    if :label in keys(kwargs)
+        return surface_plot(field; kwargs...)
+    else
+        return surface_plot(field; label=_FTLE_COLORBAR_LABEL, kwargs...)
+    end
 end
 
 function surface_plot(
@@ -138,7 +143,11 @@ function surface_plot(
         throw(BoundsError(FTLE_grid_time, (:, time_index)))
 
     field = ftle_field(view(FTLE_grid_time, :, time_index), grid_or_spectral_grid)
-    return surface_plot(field; kwargs...)
+    if :label in keys(kwargs)
+        return surface_plot(field; kwargs...)
+    else
+        return surface_plot(field; label=_FTLE_COLORBAR_LABEL, kwargs...)
+    end
 end
 
 function surface_plot(

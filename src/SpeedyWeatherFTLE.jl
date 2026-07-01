@@ -4,7 +4,6 @@ using SpeedyWeather, RingGrids
 using GeoMakie, Makie
 using LinearAlgebra
 using NCDatasets
-using Logging
 
 """
     Re

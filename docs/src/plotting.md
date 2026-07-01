@@ -4,6 +4,10 @@ The plotting helpers convert FTLE vectors or integration-horizon matrices into
 `RingGrids.Field` objects and then interpolate them onto a regular longitude
 and latitude grid for GeoMakie.
 
+FTLE array and [`FTLEResult`](@ref) inputs label their colorbars as
+`FTLE [1/h]` by default. Generic `RingGrids.Field` inputs stay unlabeled unless
+you pass `label` or `colorbar_label` yourself.
+
 Use CairoMakie in scripts and documentation builds, or GLMakie locally when you
 want interactive windows.
 
@@ -26,7 +30,6 @@ fig, ax, sp, cb = surface_plot(
     synthetic_ftle,
     spatial_grid;
     title = "Synthetic FTLE",
-    label = "FTLE [1/h]",
 )
 
 fig
@@ -35,7 +38,7 @@ fig
 If you have an [`FTLEResult`](@ref), this is enough:
 
 ```julia
-fig, ax, sp, cb = surface_plot(result; label = "FTLE [1/h]")
+fig, ax, sp, cb = surface_plot(result)
 ```
 
 When comparing several FTLE fields, use [`ftle_colorrange`](@ref) so colors
@@ -44,8 +47,8 @@ mean the same thing in each plot:
 ```julia
 shared_colorrange = ftle_colorrange(final_ftle(summer), final_ftle(winter))
 
-surface_plot(summer; colorrange = shared_colorrange, label = "FTLE [1/h]")
-surface_plot(winter; colorrange = shared_colorrange, label = "FTLE [1/h]")
+surface_plot(summer; colorrange = shared_colorrange)
+surface_plot(winter; colorrange = shared_colorrange)
 ```
 
 ## Plot Integration Horizons
@@ -63,7 +66,6 @@ fig, ax, sp, cb = slider_plot(
     FTLE_grid_time,
     spatial_grid;
     title = "Synthetic FTLE integration horizons",
-    colorbar_label = "FTLE [1/h]",
 )
 
 fig
@@ -75,7 +77,6 @@ For result objects:
 fig, ax, sp, cb = slider_plot(
     result;
     title = "FTLE integration horizons",
-    colorbar_label = "FTLE [1/h]",
 )
 ```
 
@@ -119,7 +120,6 @@ animate_slider_plot(
     spatial_grid;
     framerate = 2,
     title = "Synthetic FTLE animation",
-    colorbar_label = "FTLE [1/h]",
     coastlines = false,
 )
 
@@ -134,7 +134,6 @@ using GLMakie
 fig, ax, sp, cb = slider_plot(
     result;
     title = "Interactive FTLE integration horizons",
-    colorbar_label = "FTLE [1/h]",
 )
 
 display(fig)
@@ -154,7 +153,6 @@ fig, ax, sp, cb = globe_plot(
     lon = collect(-180:10:180),
     lat = collect(-90:10:90),
     title = "Synthetic FTLE globe",
-    label = "FTLE [1/h]",
 )
 
 fig
@@ -163,7 +161,7 @@ fig
 The same overloads as [`surface_plot`](@ref) are available:
 
 ```julia
-globe_plot(result; label = "FTLE [1/h]")
+globe_plot(result)
 globe_plot(FTLE_grid_time, spectral_grid; time_index = 3)
 globe_plot(final_ftle(result), result.spectral_grid)
 ```
@@ -176,7 +174,6 @@ using GLMakie
 fig, ax, sp, cb = globe_plot(
     result;
     title = "Interactive FTLE globe",
-    label = "FTLE [1/h]",
 )
 
 display(fig)

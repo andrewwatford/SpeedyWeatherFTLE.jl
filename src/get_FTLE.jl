@@ -242,12 +242,8 @@ function get_FTLE(
     if model_type != BarotropicModel
         @warn "get_FTLE currently only tested with BarotropicModel. Unexpected behaviour may occur."
     end
-    model = with_logger(ConsoleLogger(stderr, Logging.Warn)) do
-        model_type(spectral_grid; dynamics=dynamics, particle_advection=particle_advection)
-    end
-    simulation = with_logger(ConsoleLogger(stderr, Logging.Warn)) do
-        initialize!(model)
-    end
+    model = model_type(spectral_grid; dynamics=dynamics, particle_advection=particle_advection)
+    simulation = initialize!(model)
 
     particle_tracker = ParticleTracker(
         spectral_grid;
@@ -267,14 +263,12 @@ function get_FTLE(
 
     # SpeedyWeather.initialize!(simulation) transforms model prognostics to grid space,
     # so apply the prescribed static grid velocities after that initialization step.
-    with_logger(ConsoleLogger(stderr, Logging.Warn)) do
-        SpeedyWeather.initialize!(simulation; period=Day(simulation_days), output=false)
-        simulation.variables.grid.u[:, 1, 1] .= u
-        simulation.variables.grid.v[:, 1, 1] .= v
-        SpeedyWeather.initialize!(simulation.variables, particles, model)
-        SpeedyWeather.time_stepping!(simulation)
-        SpeedyWeather.finalize!(simulation)
-    end
+    SpeedyWeather.initialize!(simulation; period=Day(simulation_days))
+    simulation.variables.grid.u[:, 1, 1] .= u
+    simulation.variables.grid.v[:, 1, 1] .= v
+    SpeedyWeather.initialize!(simulation.variables, particles, model)
+    SpeedyWeather.time_stepping!(simulation)
+    SpeedyWeather.finalize!(simulation)
 
     ### Calculate time-dependent FTLE ###
 

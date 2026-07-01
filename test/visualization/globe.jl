@@ -67,6 +67,21 @@ using SpeedyWeatherFTLE
             spectral_grid;
             lon = collect(-180:45:180),
             lat = collect(-90:45:90),
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoMakie.GlobeAxis)
+        @test isa(sp, Makie.Surface)
+        @test isa(cb, Colorbar)
+        @test cb.label[] == "FTLE [1/h]"
+
+        fig, ax, sp, cb = globe_plot(
+            FTLE[:, end],
+            spectral_grid;
+            lon = collect(-180:45:180),
+            lat = collect(-90:45:90),
             colorbar = false,
             coastlines = false,
         )
