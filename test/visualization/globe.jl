@@ -76,6 +76,7 @@ using SpeedyWeatherFTLE
         @test isa(sp, Makie.Surface)
         @test isa(cb, Colorbar)
         @test cb.label[] == "FTLE [1/h]"
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(FTLE[:, end]))
 
         fig, ax, sp, cb = globe_plot(
             FTLE[:, end],

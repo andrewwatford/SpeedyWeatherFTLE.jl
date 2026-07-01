@@ -5,11 +5,14 @@ The plotting helpers convert FTLE vectors or integration-horizon matrices into
 and latitude grid for GeoMakie.
 
 FTLE array and [`FTLEResult`](@ref) inputs label their colorbars as
-`FTLE [1/h]` by default. Generic `RingGrids.Field` inputs stay unlabeled unless
-you pass `label` or `colorbar_label` yourself.
+`FTLE [1/h]` by default. Static FTLE plots also choose finite-value color limits
+so `NaN` samples, such as the undefined zero-duration column, do not dominate
+the color scale. Generic `RingGrids.Field` inputs stay unlabeled unless you
+pass `label` or `colorbar_label` yourself.
 
-Use CairoMakie in scripts and documentation builds, or GLMakie locally when you
-want interactive windows.
+GLMakie is available for local interactive windows. The documentation build
+activates CairoMakie explicitly, which keeps GitHub Actions headless and still
+renders static figures and GIFs.
 
 ## Plot One Output Time
 
@@ -21,15 +24,42 @@ using CairoMakie
 using RingGrids
 using SpeedyWeatherFTLE
 
-spatial_grid = FullGaussianGrid(8)
+spatial_grid = FullGaussianGrid(16)
 londs, latds = RingGrids.get_londlatds(spatial_grid)
 
-synthetic_ftle = @. 0.015 + 0.005 * sind(latds)^2
+function turbulent_ftle(londs, latds, hour)
+    phase = hour / 6
+    meander = @. 32 + 8 * sind(2londs + 18phase)
+    jet = @. exp(-((latds - meander) / 11)^2)
+    shear_ridges = @. 0.010 * jet * (1 + 0.35 * cosd(5londs - 24phase))
+
+    eddies = zeros(Float64, length(londs))
+    for (lon0, lat0, width_lon, width_lat, spin) in (
+        (-150, -24, 20, 12, 1),
+        (-88, 18, 16, 10, -1),
+        (-22, -8, 18, 14, 1),
+        (44, 34, 22, 12, -1),
+        (118, -30, 20, 11, 1),
+        (158, 10, 15, 9, -1),
+    )
+        dlon = @. mod(londs - lon0 + 180, 360) - 180
+        dlat = @. latds - lat0
+        r2 = @. (dlon / width_lon)^2 + (dlat / width_lat)^2
+        eddies .+= @. 0.007 * exp(-r2) * (1 + 0.45 * cosd(4dlon + 3dlat - 30spin * phase))
+    end
+
+    filaments = @. 0.0045 * abs(sind(3londs + 2latds + 22phase)) * exp(-abs(latds) / 65)
+    growth = 1 - exp(-hour / 24)
+    return @. 0.002 + growth * (abs(shear_ridges) + abs(eddies) + filaments)
+end
+
+synthetic_ftle = turbulent_ftle(londs, latds, 24.0)
 
 fig, ax, sp, cb = surface_plot(
     synthetic_ftle,
     spatial_grid;
-    title = "Synthetic FTLE",
+    title = "Synthetic turbulent FTLE",
+    colormap = :magma,
 )
 
 fig
@@ -41,8 +71,9 @@ If you have an [`FTLEResult`](@ref), this is enough:
 fig, ax, sp, cb = surface_plot(result)
 ```
 
-When comparing several FTLE fields, use [`ftle_colorrange`](@ref) so colors
-mean the same thing in each plot:
+For one-off FTLE plots, the default finite color limits are usually enough.
+When comparing several FTLE fields, pass a shared [`ftle_colorrange`](@ref) so
+colors mean the same thing in each plot:
 
 ```julia
 shared_colorrange = ftle_colorrange(final_ftle(summer), final_ftle(winter))
@@ -58,14 +89,15 @@ output from [`get_FTLE`](@ref). The slider axis is the particle integration
 duration, not a conventional time series of instantaneous FTLE fields.
 
 ```@example plotting
-time_hours = [6.0, 12.0, 18.0]
-FTLE_grid_time = hcat(synthetic_ftle, 1.5 .* synthetic_ftle, 2 .* synthetic_ftle)
+time_hours = collect(6.0:6.0:72.0)
+FTLE_grid_time = hcat((turbulent_ftle(londs, latds, hour) for hour in time_hours)...)
 
 fig, ax, sp, cb = slider_plot(
     time_hours,
     FTLE_grid_time,
     spatial_grid;
-    title = "Synthetic FTLE integration horizons",
+    title = "Synthetic turbulent FTLE integration horizons",
+    colormap = :magma,
 )
 
 fig
@@ -118,8 +150,9 @@ animate_slider_plot(
     time_hours,
     FTLE_grid_time,
     spatial_grid;
-    framerate = 2,
-    title = "Synthetic FTLE animation",
+    framerate = 6,
+    title = "Synthetic turbulent FTLE horizons",
+    colormap = :magma,
     coastlines = false,
 )
 
@@ -152,7 +185,8 @@ fig, ax, sp, cb = globe_plot(
     spatial_grid;
     lon = collect(-180:10:180),
     lat = collect(-90:10:90),
-    title = "Synthetic FTLE globe",
+    title = "Synthetic turbulent FTLE globe",
+    colormap = :magma,
 )
 
 fig

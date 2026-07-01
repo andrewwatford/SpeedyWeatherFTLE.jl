@@ -9,6 +9,20 @@ tracking simulation from prescribed velocity fields, compute positive- or
 negative-time FTLE, reuse saved `ParticleTracker` NetCDF files, and convert
 FTLE arrays to RingGrids fields for plotting.
 
+## Installation
+
+From the Julia package REPL, install the package directly from GitHub:
+
+```julia
+]add https://github.com/andrewwatford/SpeedyWeatherFTLE
+```
+
+Then load it in Julia with:
+
+```julia
+using SpeedyWeatherFTLE
+```
+
 ## Documentation
 
 The Documenter site in `docs/src` is the best onboarding path. It includes:

@@ -109,6 +109,21 @@ using SpeedyWeatherFTLE
         @test isa(sp, GeoMakie.Surface)
         @test isa(cb, Colorbar)
         @test cb.label[] == "FTLE [1/h]"
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(FTLE[:, end]))
+
+        fig, ax, sp, cb = surface_plot(
+            FTLE_with_nan,
+            spectral_grid;
+            time_index = 1,
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE_with_nan, :, 1)))
 
         fig, ax, sp, cb = surface_plot(
             FTLE[:, end],

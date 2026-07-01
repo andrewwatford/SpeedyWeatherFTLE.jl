@@ -15,8 +15,9 @@ Plot one FTLE field on an interactive GeoMakie `GlobeAxis`.
 With `GLMakie` active, the returned globe can be rotated and zoomed
 interactively. With `CairoMakie`, the same function renders a static globe,
 which is useful for documentation builds and CI. FTLE array and result inputs
-label the colorbar as `FTLE [1/h]` by default; pass `label = nothing` to
-suppress it.
+label the colorbar as `FTLE [1/h]` and use finite FTLE color limits by default;
+pass `label = nothing` to suppress the label or `colorrange = nothing` for
+Makie autoscaling.
 
 # Keyword Arguments
 
@@ -25,7 +26,7 @@ suppress it.
 - `shading = NoShading`: Makie surface shading option.
 - `title = nothing`: optional plot title.
 - `colormap = :viridis`: Makie colormap.
-- `colorrange = nothing`: optional color limits.
+- `colorrange = nothing`: optional color limits for `Field` inputs; FTLE inputs default to finite-value extrema.
 - `colorbar = true`: add a colorbar.
 - `label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
 - `coastlines = true`: draw GeoMakie coastlines on the globe.
@@ -116,11 +117,14 @@ function globe_plot(
     kwargs...
     )
     field = ftle_field(FTLE_grid, grid_or_spectral_grid)
-    if :label in keys(kwargs)
-        return globe_plot(field; kwargs...)
-    else
-        return globe_plot(field; label=_FTLE_COLORBAR_LABEL, kwargs...)
+    plot_kwargs = (; kwargs...)
+    if !(:label in keys(plot_kwargs))
+        plot_kwargs = merge((; label=_FTLE_COLORBAR_LABEL), plot_kwargs)
     end
+    if !(:colorrange in keys(plot_kwargs))
+        plot_kwargs = merge((; colorrange=ftle_colorrange(FTLE_grid)), plot_kwargs)
+    end
+    return globe_plot(field; plot_kwargs...)
 end
 
 function globe_plot(
@@ -132,12 +136,16 @@ function globe_plot(
     1 <= time_index <= size(FTLE_grid_time, 2) ||
         throw(BoundsError(FTLE_grid_time, (:, time_index)))
 
-    field = ftle_field(view(FTLE_grid_time, :, time_index), grid_or_spectral_grid)
-    if :label in keys(kwargs)
-        return globe_plot(field; kwargs...)
-    else
-        return globe_plot(field; label=_FTLE_COLORBAR_LABEL, kwargs...)
+    ftle_values = view(FTLE_grid_time, :, time_index)
+    field = ftle_field(ftle_values, grid_or_spectral_grid)
+    plot_kwargs = (; kwargs...)
+    if !(:label in keys(plot_kwargs))
+        plot_kwargs = merge((; label=_FTLE_COLORBAR_LABEL), plot_kwargs)
     end
+    if !(:colorrange in keys(plot_kwargs))
+        plot_kwargs = merge((; colorrange=ftle_colorrange(ftle_values)), plot_kwargs)
+    end
+    return globe_plot(field; plot_kwargs...)
 end
 
 function globe_plot(
