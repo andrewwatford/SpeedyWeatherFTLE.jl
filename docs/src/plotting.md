@@ -60,6 +60,8 @@ fig, ax, sp, cb = surface_plot(
     spatial_grid;
     title = "Synthetic turbulent FTLE",
     colormap = :magma,
+    coastline_color = :white,
+    coastline_linewidth = 0.8,
 )
 
 fig
@@ -98,6 +100,8 @@ fig, ax, sp, cb = slider_plot(
     spatial_grid;
     title = "Synthetic turbulent FTLE integration horizons",
     colormap = :magma,
+    coastline_color = :white,
+    coastline_linewidth = 1.2,
 )
 
 fig
@@ -153,7 +157,8 @@ animate_slider_plot(
     framerate = 6,
     title = "Synthetic turbulent FTLE horizons",
     colormap = :magma,
-    coastlines = false,
+    coastline_color = :white,
+    coastline_linewidth = 1.2,
 )
 
 isfile(animation_path), filesize(animation_path) > 0
@@ -187,6 +192,8 @@ fig, ax, sp, cb = globe_plot(
     lat = collect(-90:10:90),
     title = "Synthetic turbulent FTLE globe",
     colormap = :magma,
+    coastline_color = :white,
+    coastline_linewidth = 1.2,
 )
 
 fig

@@ -46,5 +46,6 @@ animate_slider_plot(
     framerate = 6,
     title = "Synthetic turbulent FTLE horizons",
     colormap = :magma,
-    coastlines = false,
+    coastline_color = :white,
+    coastline_linewidth = 1.2,
 )

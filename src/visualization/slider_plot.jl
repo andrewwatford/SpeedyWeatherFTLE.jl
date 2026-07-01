@@ -35,6 +35,9 @@ function _slider_plot_handle(
     colorrange=:auto,
     colorbar_label=nothing, 
     coastlines::Bool=true,
+    coastline_color=:black,
+    coastline_linewidth=1,
+    coastline_kwargs=NamedTuple(),
     time_label::Bool=true,
     time_label_format=t -> "t = $(t) h",
     )
@@ -86,7 +89,11 @@ function _slider_plot_handle(
 
     sp = surface!(ax, lon_vec, lat_vec, field_data; shading=shading, colormap=colormap, colorrange=resolved_colorrange)
     if coastlines
-        lines!(ax, GeoMakie.coastlines(), color=:black, overdraw=true)
+        line_attributes = merge(
+            (; color=coastline_color, linewidth=coastline_linewidth, overdraw=true),
+            coastline_kwargs,
+        )
+        lines!(ax, GeoMakie.coastlines(); line_attributes...)
     end
 
     if colorbar
@@ -129,6 +136,9 @@ inputs label the colorbar as `FTLE [1/h]` by default; pass
 - `colorrange = :auto`: color limits. Use `:auto` or `nothing` for finite-value extrema, `:symmetric` for symmetric limits, or pass explicit limits.
 - `colorbar_label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
 - `coastlines = true`: draw GeoMakie coastlines.
+- `coastline_color = :black`: coastline color.
+- `coastline_linewidth = 1`: coastline line width.
+- `coastline_kwargs = (;)`: extra keyword arguments forwarded to `lines!`.
 - `time_label = true`: show a live label above the slider with the active time.
 - `time_label_format = t -> "t = \$(t) h"`: format the live time label.
 - `return_handle = false`: return a [`SliderPlotHandle`](@ref) with the slider

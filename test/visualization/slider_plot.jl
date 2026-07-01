@@ -15,6 +15,9 @@ using SpeedyWeatherFTLE
                 field_ts,;
                 title = title,
                 coastlines = coastlines,
+                coastline_color = :white,
+                coastline_linewidth = 2,
+                coastline_kwargs = (; overdraw = true),
                 colorbar = colorbar,
                 colorbar_label = label,
             )

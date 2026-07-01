@@ -75,7 +75,11 @@ SpeedyWeather particle-tracking runs. Start with a small grid while tuning
 parameters, then increase the resolution and integration time once the workflow
 looks right.
 
-```julia
+First define and inspect the two prescribed flow states. These lightweight
+plots are rendered in the docs so you can check that the summer-like and
+winter-like jets are meaningfully different before launching particle tracking.
+
+```@example meandering_jets
 using CairoMakie
 using RingGrids
 using SpeedyWeatherFTLE
@@ -109,6 +113,39 @@ winter_u, winter_v = meandering_jet(
     jet_width = 10,
 )
 
+summer_speed = sqrt.(summer_u.^2 .+ summer_v.^2)
+winter_speed = sqrt.(winter_u.^2 .+ winter_v.^2)
+speed_colorrange = (0, 70)
+
+fig_summer_speed, ax_summer_speed, sp_summer_speed, cb_summer_speed = surface_plot(
+    summer_speed;
+    title = "Summer-like meandering jet speed",
+    label = "speed [m/s]",
+    colormap = :batlow,
+    colorrange = speed_colorrange,
+    coastline_linewidth = 0.7,
+)
+
+fig_summer_speed
+```
+
+```@example meandering_jets
+fig_winter_speed, ax_winter_speed, sp_winter_speed, cb_winter_speed = surface_plot(
+    winter_speed;
+    title = "Winter-like meandering jet speed",
+    label = "speed [m/s]",
+    colormap = :batlow,
+    colorrange = speed_colorrange,
+    coastline_linewidth = 0.7,
+)
+
+fig_winter_speed
+```
+
+Then run one FTLE experiment per flow state and compare the final integration
+horizon with a shared color scale:
+
+```julia
 common_kwargs = (
     simulation_days = 7,
     dist_km = 25,
