@@ -5,7 +5,7 @@ using SpeedyWeatherFTLE
 @testset "slider_plot.jl" begin
     # Create a mock Field
     grid = HEALPixGrid(20)
-    field_ts = rand(grid, 5)  # Assuming a time series with 5 time steps
+    field_ts = rand(grid, 5)  # A generic time-dependent field for plotting coverage.
     title = "Test Slider Plot"
     label = "Field Value"
     for coastlines in (true, false)

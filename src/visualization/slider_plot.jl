@@ -153,12 +153,14 @@ end
     slider_plot(times, FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid; start_index = nothing, kwargs...)
     slider_plot(result::FTLEResult; kwargs...)
 
-Plot an FTLE time series with a Makie slider.
+Plot FTLE values for different integration horizons with a Makie slider.
 
 `slider_plot` accepts a time-dependent `RingGrids.Field`, the matrix returned by
 [`get_FTLE`](@ref), or an [`FTLEResult`](@ref). For FTLE arrays, the
 zero-duration sample is skipped by default because FTLE is undefined at
-`t = 0`; pass `start_index = 1` to include it.
+`t = 0`; pass `start_index = 1` to include it. For FTLE outputs, the slider
+shows different integration durations from the same particle release, not a
+time series of independent instantaneous FTLE fields.
 
 # Keyword Arguments
 

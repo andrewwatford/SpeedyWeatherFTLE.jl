@@ -5,10 +5,10 @@
 
 Convert FTLE arrays into `RingGrids.Field` objects.
 
-Use the matrix form for a full `(grid point, time)` FTLE time series, the vector
-form for a single output time, or pass an [`FTLEResult`](@ref) directly. The
-grid argument may be either the `SpectralGrid` returned by [`get_FTLE`](@ref) or
-its spatial grid.
+Use the matrix form for a full `(grid point, integration horizon)` FTLE output,
+the vector form for a single output time, or pass an [`FTLEResult`](@ref)
+directly. The grid argument may be either the `SpectralGrid` returned by
+[`get_FTLE`](@ref) or its spatial grid.
 """
 function ftle_field(FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid)
     """
