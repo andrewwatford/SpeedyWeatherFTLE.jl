@@ -200,11 +200,20 @@ evolving = positive_FTLE(
 
 evolution_colorrange = ftle_colorrange(frozen, evolving)
 
-fig, ax, sp, cb = surface_plot(
+fig_frozen, ax_frozen, sp_frozen, cb_frozen = surface_plot(
+    frozen;
+    title = "Frozen-flow FTLE after $(only(frozen.time_hours)) h",
+    colorrange = evolution_colorrange,
+)
+
+fig_evolving, ax_evolving, sp_evolving, cb_evolving = surface_plot(
     evolving;
     title = "Evolving-flow FTLE after $(only(evolving.time_hours)) h",
     colorrange = evolution_colorrange,
 )
+
+display(fig_frozen)
+display(fig_evolving)
 ```
 
 For an integration-duration sweep from a single release, set
