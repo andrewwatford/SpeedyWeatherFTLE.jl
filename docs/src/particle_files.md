@@ -67,7 +67,7 @@ displacement-gradient work array once, then call
 
 ```julia
 npoints = result.spectral_grid.npoints
-FTLE_buffer = Matrix{Float64}(undef, npoints, length(result.time_hours))
+FTLE_buffer = Matrix{Float64}(undef, npoints, 1)
 B = Array{Float64}(undef, 2, 2, npoints)
 
 FTLE_from_particle_file!(
@@ -76,7 +76,7 @@ FTLE_from_particle_file!(
     result.particle_file_path,
     result.spectral_grid,
     result.dist_km;
-    time_indices = eachindex(result.time_hours),
+    time_indices = :last,
 )
 ```
 

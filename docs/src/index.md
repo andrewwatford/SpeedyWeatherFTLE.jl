@@ -96,6 +96,7 @@ fig
 From the repository root, instantiate the project once:
 
 ```julia
+] activate .
 ] instantiate
 ```
 

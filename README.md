@@ -14,7 +14,7 @@ FTLE arrays to RingGrids fields for plotting.
 From the Julia package REPL, install the package directly from GitHub:
 
 ```julia
-]add https://github.com/andrewwatford/SpeedyWeatherFTLE
+]add https://github.com/andrewwatford/SpeedyWeatherFTLE.jl
 ```
 
 Then load it in Julia with:
@@ -55,7 +55,9 @@ The richest examples live in the documentation:
 ## Basic usage
 
 ```julia
-using SpeedyWeatherFTLE, RingGrids
+using CairoMakie
+using RingGrids
+using SpeedyWeatherFTLE
 
 grid = FullGaussianGrid(20)
 u = 100 * rand(grid)
@@ -100,12 +102,17 @@ FTLE, time_hours = FTLE_from_particle_file(
 ```
 
 ## Setting up the project for development
-To set up the project for development for the first time, first clone this repository. Then, from the repository directory, open `julia` and run:
+To set up the project for development for the first time, first clone this
+repository. Then, from the repository directory, open `julia` and run:
+
 ```julia
-]instantiate
-]activate .
+] activate .
+] instantiate
 ```
-`instantiate` creates a `Manifest.toml` file, which creates the environment that is needed for all future use of the package - you usually only need to instantiate once. `activate .` activates the environment in the present directory, that is, the current project.
+
+`activate .` selects the project in the present directory. `instantiate`
+creates or updates the environment needed for local package work; you usually
+only need to instantiate once.
 
 ## Running the test suite located in `./test`
 Run the following code:
