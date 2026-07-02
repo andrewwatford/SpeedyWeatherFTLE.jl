@@ -62,6 +62,27 @@ using SpeedyWeatherFTLE
         @test isa(cb, Colorbar)
         @test cb.label[] == label
         @test ax.title[] == title
+
+        shared_colorrange = (0.0, 1.0)
+        fig, ax, sp, cb = slider_plot(
+            collect(0:4),
+            FTLE,
+            spectral_grid;
+            title = title,
+            colorbar = true,
+            coastlines = false,
+            colorrange = shared_colorrange,
+            axis_kwargs = (; xlabel = "longitude"),
+            surface_kwargs = (; transparency = false),
+            colorbar_kwargs = (; vertical = true),
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test ax.xlabel[] == "longitude"
+        @test sp.colorrange[] == collect(shared_colorrange)
         @test_throws DimensionMismatch slider_plot(collect(0:3), FTLE, spectral_grid)
         @test_throws BoundsError slider_plot(collect(0:4), FTLE, spectral_grid; start_index = 0)
 

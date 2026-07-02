@@ -90,6 +90,11 @@ surface_plot(winter; colorrange = shared_colorrange)
 output from [`get_FTLE`](@ref). The slider axis is the particle integration
 duration, not a conventional time series of instantaneous FTLE fields.
 
+!!! note "Integration horizons, not an FTLE time series"
+    Each slider frame uses the same particle release and a different integration
+    duration. Reading the sequence as an evolving FTLE field would imply a new
+    particle release for each frame, which is a different diagnostic.
+
 ```@example plotting
 time_hours = collect(6.0:6.0:72.0)
 FTLE_grid_time = hcat((turbulent_ftle(londs, latds, hour) for hour in time_hours)...)
@@ -120,6 +125,8 @@ The zero-duration tracker sample is skipped by default because FTLE is
 undefined at `t = 0`. Pass `start_index = 1` if you explicitly want to include
 that column. Slider plots show the active time above the slider by default; set
 `time_label = false` to hide it, or pass `time_label_format` to customize it.
+As with static maps, pass `axis_kwargs`, `surface_kwargs`, `colorbar_kwargs`,
+or `coastline_kwargs` when you need lower-level Makie styling.
 
 When you want to keep hold of the interactive controls, request a handle:
 

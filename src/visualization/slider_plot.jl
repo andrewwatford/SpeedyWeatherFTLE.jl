@@ -40,6 +40,10 @@ function _slider_plot_handle(
     coastline_kwargs=NamedTuple(),
     time_label::Bool=true,
     time_label_format=t -> "t = $(t) h",
+    figure_kwargs=NamedTuple(),
+    axis_kwargs=NamedTuple(),
+    surface_kwargs=NamedTuple(),
+    colorbar_kwargs=NamedTuple(),
     )
     # Number of time steps
     n_times = size(field_ts, 2)
@@ -49,12 +53,9 @@ function _slider_plot_handle(
     lon_vec = vec([lo for lo in lon, la in lat])
     lat_vec = vec([la for lo in lon, la in lat])
     # Create figure and axis
-    fig = Figure()
-    if title !== nothing
-        ax = GeoAxis(fig[1,1]; title=title)
-    else
-        ax = GeoAxis(fig[1,1])
-    end
+    fig = Figure(; figure_kwargs...)
+    axis_attributes = title === nothing ? axis_kwargs : merge((; title), axis_kwargs)
+    ax = GeoAxis(fig[1,1]; axis_attributes...)
 
     # Construct the colorrange if not provided.
     resolved_colorrange = _resolve_colorrange(field_ts, colorrange)
@@ -87,7 +88,9 @@ function _slider_plot_handle(
         interpolate(lon_vec, lat_vec, field)
     end
 
-    sp = surface!(ax, lon_vec, lat_vec, field_data; shading=shading, colormap=colormap, colorrange=resolved_colorrange)
+    surface_attributes = merge((; shading, colormap), surface_kwargs)
+    surface_attributes = merge(surface_attributes, (; colorrange=resolved_colorrange))
+    sp = surface!(ax, lon_vec, lat_vec, field_data; surface_attributes...)
     if coastlines
         line_attributes = merge(
             (; color=coastline_color, linewidth=coastline_linewidth, overdraw=true),
@@ -97,10 +100,11 @@ function _slider_plot_handle(
     end
 
     if colorbar
+        colorbar_attributes = merge((; height=Relative(0.7)), colorbar_kwargs)
         if colorbar_label === nothing
-            cb = Colorbar(fig[1, 2], sp; height=Relative(0.7))
+            cb = Colorbar(fig[1, 2], sp; colorbar_attributes...)
         else
-            cb = Colorbar(fig[1, 2], sp; label=colorbar_label, height=Relative(0.7))
+            cb = Colorbar(fig[1, 2], sp; label=colorbar_label, colorbar_attributes...)
         end
     else
         cb = nothing
@@ -141,6 +145,10 @@ inputs label the colorbar as `FTLE [1/h]` by default; pass
 - `coastline_kwargs = (;)`: extra keyword arguments forwarded to `lines!`.
 - `time_label = true`: show a live label above the slider with the active time.
 - `time_label_format = t -> "t = \$(t) h"`: format the live time label.
+- `figure_kwargs = (;)`: extra keyword arguments forwarded to `Figure`.
+- `axis_kwargs = (;)`: extra keyword arguments forwarded to `GeoAxis`.
+- `surface_kwargs = (;)`: extra keyword arguments forwarded to `surface!`.
+- `colorbar_kwargs = (;)`: extra keyword arguments forwarded to `Colorbar`.
 - `return_handle = false`: return a [`SliderPlotHandle`](@ref) with the slider
   controls instead of the usual four-value tuple.
 
