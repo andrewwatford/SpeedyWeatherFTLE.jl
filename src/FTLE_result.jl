@@ -56,6 +56,9 @@ function FTLEResult(
     end
     length(time_hours) == size(ftle, 2) ||
         throw(DimensionMismatch("time_hours has length $(length(time_hours)), but ftle has $(size(ftle, 2)) time columns"))
+    _check_time_hours(time_hours)
+    _check_dist_km(dist_km)
+    _check_positive_hours(rint_hours, "rint_hours")
 
     return FTLEResult(
         ftle,

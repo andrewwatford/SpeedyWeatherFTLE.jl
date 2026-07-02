@@ -1,4 +1,4 @@
-using GeoMakie, Makie
+using GeoMakie
 using SpeedyWeather
 using SpeedyWeatherFTLE
 
@@ -22,7 +22,7 @@ using SpeedyWeatherFTLE
 
             @test isa(fig, Figure)
             @test isa(ax, GeoMakie.GlobeAxis)
-            @test isa(sp, Makie.Surface)
+            @test isa(sp, GeoMakie.Makie.Surface)
             if colorbar
                 @test isa(cb, Colorbar)
                 @test cb.label[] == label
@@ -47,7 +47,7 @@ using SpeedyWeatherFTLE
 
     @test isa(fig, Figure)
     @test isa(ax, GeoMakie.GlobeAxis)
-    @test isa(sp, Makie.Surface)
+    @test isa(sp, GeoMakie.Makie.Surface)
     @test isa(cb, Colorbar)
     @test Tuple(fig.scene.viewport[].widths) == (480, 320)
     @test ax.show_axis[] == true
@@ -86,7 +86,7 @@ using SpeedyWeatherFTLE
 
         @test isa(fig, Figure)
         @test isa(ax, GeoMakie.GlobeAxis)
-        @test isa(sp, Makie.Surface)
+        @test isa(sp, GeoMakie.Makie.Surface)
         @test cb === nothing
         @test_throws BoundsError globe_plot(FTLE, spectral_grid; time_index = 0)
         @test_throws ArgumentError globe_plot(FTLE, spectral_grid; time_index = 2, time_hour = 2.0, time_hours = result.time_hours)
@@ -107,7 +107,7 @@ using SpeedyWeatherFTLE
 
         @test isa(fig, Figure)
         @test isa(ax, GeoMakie.GlobeAxis)
-        @test isa(sp, Makie.Surface)
+        @test isa(sp, GeoMakie.Makie.Surface)
         @test isa(cb, Colorbar)
         @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE, :, 4)))
 
@@ -122,7 +122,7 @@ using SpeedyWeatherFTLE
 
         @test isa(fig, Figure)
         @test isa(ax, GeoMakie.GlobeAxis)
-        @test isa(sp, Makie.Surface)
+        @test isa(sp, GeoMakie.Makie.Surface)
         @test isa(cb, Colorbar)
         @test cb.label[] == "FTLE [1/h]"
         @test sp.colorrange[] ≈ collect(ftle_colorrange(FTLE[:, end]))
@@ -138,7 +138,7 @@ using SpeedyWeatherFTLE
 
         @test isa(fig, Figure)
         @test isa(ax, GeoMakie.GlobeAxis)
-        @test isa(sp, Makie.Surface)
+        @test isa(sp, GeoMakie.Makie.Surface)
         @test cb === nothing
         @test_throws ArgumentError globe_plot(diagnostic_result)
 
@@ -153,7 +153,7 @@ using SpeedyWeatherFTLE
 
         @test isa(fig, Figure)
         @test isa(ax, GeoMakie.GlobeAxis)
-        @test isa(sp, Makie.Surface)
+        @test isa(sp, GeoMakie.Makie.Surface)
         @test cb === nothing
 
         fig, ax, sp, cb = globe_plot(
@@ -167,7 +167,7 @@ using SpeedyWeatherFTLE
 
         @test isa(fig, Figure)
         @test isa(ax, GeoMakie.GlobeAxis)
-        @test isa(sp, Makie.Surface)
+        @test isa(sp, GeoMakie.Makie.Surface)
         @test isa(cb, Colorbar)
         @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE, :, 4)))
         @test_throws ArgumentError globe_plot(result; time_index = 2, time_hour = 2.0)

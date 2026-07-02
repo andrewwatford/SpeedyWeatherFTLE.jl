@@ -1,26 +1,3 @@
-"""
-    SliderPlotHandle
-
-Internal controls returned by [`slider_plot`](@ref) when
-`return_handle = true`.
-
-The first four fields match the normal `slider_plot` return values:
-`fig, ax, sp, cb`. The remaining fields expose the `SliderGrid`, the active
-slider, the optional live time label, and the plotted time values so helper
-functions such as [`set_slider_time!`](@ref) and [`animate_slider_plot`](@ref)
-can drive the same slider plot.
-"""
-struct SliderPlotHandle{F, A, S, C, G, L, D, T}
-    fig::F
-    ax::A
-    sp::S
-    cb::C
-    slidergrid::G
-    slider::L
-    time_label::D
-    times::T
-end
-
 _plot_tuple(handle::SliderPlotHandle) = (handle.fig, handle.ax, handle.sp, handle.cb)
 
 function _drop_keyword(kwargs::NamedTuple, key::Symbol)
@@ -45,8 +22,8 @@ end
 function _slider_plot_handle(
     times::AbstractVector{<:Real},
     field_ts::Field;
-    lon::Vector=Vector(-180:180),
-    lat::Vector=Vector(-90:90),
+    lon::AbstractVector=Vector(-180:180),
+    lat::AbstractVector=Vector(-90:90),
     shading=NoShading, 
     title=nothing,
     colormap=:viridis,
@@ -208,11 +185,11 @@ function slider_plot(
         throw(DimensionMismatch("times has length $(length(times)), but FTLE_grid_time has $(size(FTLE_grid_time, 2)) time steps"))
 
     if start_index === nothing
-        start_index = findfirst(t -> isfinite(t) && t > 0, times)
+        start_index = findfirst(t -> isfinite(t) && !iszero(t), times)
         start_index === nothing &&
             throw(ArgumentError(
-                "slider_plot skips zero-duration FTLE data by default, but no finite positive time is available; " *
-                "pass start_index=1 to include zero-duration or nonpositive data.",
+                "slider_plot skips zero-duration FTLE data by default, but no finite nonzero time is available; " *
+                "pass start_index=1 to include zero-duration data.",
             ))
     end
     firstindex(times) <= start_index <= lastindex(times) ||

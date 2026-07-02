@@ -1,9 +1,9 @@
 module SpeedyWeatherFTLE
 
 using SpeedyWeather, RingGrids
-using GeoMakie, Makie
 using LinearAlgebra
 using NCDatasets
+using Requires: @require
 
 """
     Re
@@ -17,11 +17,13 @@ include("./FTLE_computations.jl")
 include("visualization/ftle_field.jl")
 include("FTLE_result.jl")
 include("visualization/plot_helpers.jl")
+include("plotting_api.jl")
 include("FTLE_diagnostics.jl")
-include("visualization/surface_plot.jl")
-include("visualization/slider_plot.jl")
-include("visualization/globe.jl")
 include("get_FTLE.jl")
+
+function __init__()
+    @require GeoMakie = "db073c08-6b98-4ee5-b6a4-5efafb3259c6" include("visualization/makie_methods.jl")
+end
 
 export FTLEResult
 export final_ftle
@@ -41,8 +43,11 @@ export set_slider_time!
 export animate_slider_plot
 export globe_plot
 export get_FTLE
+export FTLEParticleSetup
 export initial_FTLE_particle_positions!
 export initial_FTLE_particle_positions
+export prepare_FTLE_particles!
+export attach_FTLE_tracker!
 export positive_FTLE
 export negative_FTLE
 export Re

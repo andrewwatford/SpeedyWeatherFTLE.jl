@@ -46,8 +46,8 @@ autoscaling.
 """
 function surface_plot(
     field::Field;
-    lon::Vector=Vector(-180:180),
-    lat::Vector=Vector(-90:90),
+    lon::AbstractVector=Vector(-180:180),
+    lat::AbstractVector=Vector(-90:90),
     shading=NoShading, 
     title=nothing,
     colormap=:viridis,

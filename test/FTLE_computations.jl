@@ -187,6 +187,38 @@ using Test
         npoints = length(first(RingGrids.get_londlatds(grid)))
         path = tempname() * ".nc"
 
+        function write_particle_file(path, grid, release_dist_km, time_hours; lon_dims=("particle", "time"), lat_dims=("particle", "time"))
+            plonds, platds = initial_FTLE_particle_positions(grid, release_dist_km)
+            ds = NCDataset(path, "c")
+            try
+                defDim(ds, "particle", length(plonds))
+                defDim(ds, "time", length(time_hours))
+                time = defVar(
+                    ds,
+                    "time",
+                    Float64,
+                    ("time",);
+                    attrib = ["units" => "hours since 2020-01-01 00:00:00"],
+                )
+                lon = defVar(ds, "lon", Float64, lon_dims)
+                lat = defVar(ds, "lat", Float64, lat_dims)
+                time[:] = time_hours
+                if lon_dims == ("particle", "time")
+                    lon[:, :] = repeat(plonds, 1, length(time_hours))
+                else
+                    lon[:, :] = repeat(plonds', length(time_hours), 1)
+                end
+                if lat_dims == ("particle", "time")
+                    lat[:, :] = repeat(platds, 1, length(time_hours))
+                else
+                    lat[:, :] = repeat(platds', length(time_hours), 1)
+                end
+            finally
+                close(ds)
+            end
+            return path
+        end
+
         try
             ds = NCDataset(path, "c")
             try
@@ -203,6 +235,110 @@ using Test
             @test_throws ArgumentError FTLE_from_particle_file(path, grid, dist_km)
         finally
             rm(path; force=true)
+        end
+
+        valid_path = tempname() * ".nc"
+        negative_time_path = tempname() * ".nc"
+        wrong_dims_path = tempname() * ".nc"
+        nonfinite_path = tempname() * ".nc"
+
+        try
+            write_particle_file(valid_path, grid, 10.0, [0.0, 1.0])
+            @test_throws ArgumentError FTLE_from_particle_file(valid_path, grid, 20.0)
+
+            FTLE, selected_times = FTLE_from_particle_file(valid_path, grid, 10.0; time_indices = :nonzero)
+            @test selected_times == [1.0]
+            @test size(FTLE) == (npoints, 1)
+            @test all(value -> isapprox(value, 0.0; atol = 1e-12), FTLE)
+
+            write_particle_file(negative_time_path, grid, 10.0, [0.0, -1.0, -2.0])
+            negative_FTLE, negative_times = FTLE_from_particle_file(
+                negative_time_path,
+                grid,
+                10.0;
+                time_indices = :nonzero,
+            )
+            @test negative_times == [-1.0, -2.0]
+            @test size(negative_FTLE) == (npoints, 2)
+            @test all(value -> isapprox(value, 0.0; atol = 1e-12), negative_FTLE)
+
+            write_particle_file(wrong_dims_path, grid, 10.0, [0.0, 1.0]; lon_dims = ("time", "particle"))
+            @test_throws DimensionMismatch FTLE_from_particle_file(wrong_dims_path, grid, 10.0)
+
+            write_particle_file(nonfinite_path, grid, 10.0, [0.0, 1.0])
+            ds = NCDataset(nonfinite_path, "a")
+            try
+                ds["lon"][1, 2] = Inf
+            finally
+                close(ds)
+            end
+            @test_throws ArgumentError FTLE_from_particle_file(nonfinite_path, grid, 10.0; time_indices = 2)
+        finally
+            rm(valid_path; force=true)
+            rm(negative_time_path; force=true)
+            rm(wrong_dims_path; force=true)
+            rm(nonfinite_path; force=true)
+        end
+
+        @testset "malformed particle file errors" begin
+            no_particle_dim_path = tempname() * ".nc"
+            missing_time_path = tempname() * ".nc"
+            missing_lonlat_path = tempname() * ".nc"
+            empty_time_path = tempname() * ".nc"
+
+            try
+                ds = NCDataset(no_particle_dim_path, "c")
+                try
+                    defDim(ds, "time", 1)
+                    defVar(ds, "time", Float64, ("time",); attrib = ["units" => "hours since 2020-01-01 00:00:00"])[:] = [0.0]
+                finally
+                    close(ds)
+                end
+                @test_throws ArgumentError FTLE_from_particle_file(no_particle_dim_path, grid, dist_km)
+
+                ds = NCDataset(missing_time_path, "c")
+                try
+                    defDim(ds, "particle", 4 * npoints)
+                    defDim(ds, "time", 1)
+                    defVar(ds, "lon", Float64, ("particle", "time"))
+                    defVar(ds, "lat", Float64, ("particle", "time"))
+                finally
+                    close(ds)
+                end
+                @test_throws ArgumentError FTLE_from_particle_file(missing_time_path, grid, dist_km)
+
+                ds = NCDataset(missing_lonlat_path, "c")
+                try
+                    defDim(ds, "particle", 4 * npoints)
+                    defDim(ds, "time", 1)
+                    defVar(ds, "time", Float64, ("time",); attrib = ["units" => "hours since 2020-01-01 00:00:00"])[:] = [0.0]
+                finally
+                    close(ds)
+                end
+                @test_throws ArgumentError FTLE_from_particle_file(
+                    missing_lonlat_path,
+                    grid,
+                    dist_km;
+                    validate_initial_positions = false,
+                )
+
+                ds = NCDataset(empty_time_path, "c")
+                try
+                    defDim(ds, "particle", 4 * npoints)
+                    defDim(ds, "time", 0)
+                    defVar(ds, "time", Float64, ("time",); attrib = ["units" => "hours since 2020-01-01 00:00:00"])
+                    defVar(ds, "lon", Float64, ("particle", "time"))
+                    defVar(ds, "lat", Float64, ("particle", "time"))
+                finally
+                    close(ds)
+                end
+                @test_throws ArgumentError FTLE_from_particle_file(empty_time_path, grid, dist_km)
+            finally
+                rm(no_particle_dim_path; force=true)
+                rm(missing_time_path; force=true)
+                rm(missing_lonlat_path; force=true)
+                rm(empty_time_path; force=true)
+            end
         end
     end
 
@@ -355,6 +491,28 @@ using Test
             )
             @test nonzero_times == Float64.(times[2:end])
             @test nonzero_FTLE ≈ FTLE_grid_time[:, 2:end] rtol=1e-4 atol=1e-8
+
+            negative_nonzero_FTLE, negative_nonzero_times = FTLE_from_particles(
+                plonds_time,
+                platds_time,
+                -times,
+                1,
+                dist_km;
+                time_indices = :nonzero,
+            )
+            @test negative_nonzero_times == Float64.(-times[2:end])
+            @test negative_nonzero_FTLE ≈ FTLE_grid_time[:, 2:end] rtol=1e-4 atol=1e-8
+
+            positive_selector_FTLE, positive_selector_times = FTLE_from_particles(
+                plonds_time,
+                platds_time,
+                -times,
+                1,
+                dist_km;
+                time_indices = :positive,
+            )
+            @test size(positive_selector_FTLE) == (1, 0)
+            @test isempty(positive_selector_times)
 
             mask_FTLE, mask_times = FTLE_from_particles(
                 plonds_time,

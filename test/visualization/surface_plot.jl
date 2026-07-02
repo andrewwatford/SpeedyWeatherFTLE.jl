@@ -1,4 +1,4 @@
-using GeoMakie, Makie
+using GeoMakie
 using SpeedyWeather
 using SpeedyWeatherFTLE
 
@@ -28,6 +28,19 @@ using SpeedyWeatherFTLE
         end
     end
 
+    fig, ax, sp, cb = surface_plot(
+        field;
+        lon = -180:60:180,
+        lat = -90:30:90,
+        coastlines = false,
+        colorbar = false,
+    )
+
+    @test isa(fig, Figure)
+    @test isa(ax, GeoAxis)
+    @test isa(sp, GeoMakie.Surface)
+    @test cb === nothing
+
     @testset "FTLE matrix overload" begin
         spectral_grid = SpectralGrid(nlayers=1, trunc=6, Grid=FullGaussianGrid)
         FTLE = rand(spectral_grid.npoints, 4)
@@ -56,6 +69,27 @@ using SpeedyWeatherFTLE
         @test_throws DimensionMismatch FTLEResult(FTLE[:, end], spectral_grid, [3.0]; result_kwargs...)
         @test_throws DimensionMismatch FTLEResult(FTLE[1:end - 1, :], spectral_grid, collect(0.0:3.0); result_kwargs...)
         @test_throws DimensionMismatch FTLEResult(FTLE, spectral_grid, [0.0, 1.0]; result_kwargs...)
+        @test_throws ArgumentError FTLEResult(FTLE, spectral_grid, [NaN, 1.0, 2.0, 3.0]; result_kwargs...)
+        @test_throws ArgumentError FTLEResult(FTLE, spectral_grid, [0.0, Inf, 2.0, 3.0]; result_kwargs...)
+        @test_throws ArgumentError FTLEResult(FTLE, spectral_grid, Any[0.0, "1.0", 2.0, 3.0]; result_kwargs...)
+        @test_throws ArgumentError FTLEResult(
+            FTLE,
+            spectral_grid,
+            collect(0.0:3.0);
+            dist_km = 0,
+            backwards = false,
+            dynamics = false,
+            rint_hours = 1,
+        )
+        @test_throws ArgumentError FTLEResult(
+            FTLE,
+            spectral_grid,
+            collect(0.0:3.0);
+            dist_km = 10,
+            backwards = false,
+            dynamics = false,
+            rint_hours = Inf,
+        )
 
         @test isa(field, Field)
         @test size(field) == size(FTLE)

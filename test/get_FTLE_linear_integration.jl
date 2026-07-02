@@ -109,14 +109,12 @@ using Test
             @test reread_time_hours == time_hours
             @test_throws ArgumentError FTLE_from_particle_file(particle_path, spectral_grid, 400)
 
-            unchecked_FTLE, unchecked_time_hours = FTLE_from_particle_file(
+            @test_throws ArgumentError FTLE_from_particle_file(
                 particle_path,
                 spectral_grid,
                 400;
                 validate_initial_positions = false,
             )
-            @test size(unchecked_FTLE) == size(FTLE)
-            @test unchecked_time_hours == time_hours
 
             FTLE_buffer = fill(NaN, size(FTLE))
             B_buffer = fill(NaN, 2, 2, spectral_grid.npoints)
@@ -197,5 +195,72 @@ using Test
         @test_throws ArgumentError get_FTLE(u, v; particle_advection_every_n_time_steps = 0)
         @test_throws ArgumentError get_FTLE(u, v; dist_km = 0)
         @test_throws ArgumentError get_FTLE(u, v; particle_tracker_compression_level = 10)
+    end
+
+    @testset "existing SpeedyWeather simulation workflow" begin
+        A = [2e-6 0.0; 0.0 0.0]
+        u, v = linear_velocity_fields(A)
+        spectral_grid = SpectralGrid(nlayers = 1, trunc = 4, Grid = FullClenshawGrid)
+        tracker_dir = mktempdir()
+
+        try
+            particle_advection = ParticleAdvection2D(
+                spectral_grid;
+                nparticles = 4 * spectral_grid.npoints,
+                backwards = false,
+                every_n_time_steps = 1,
+            )
+            model = BarotropicModel(spectral_grid; dynamics = false, particle_advection)
+            simulation = initialize!(model)
+
+            setup = attach_FTLE_tracker!(
+                simulation;
+                dist_km = 500,
+                rint_hours = 3,
+                path = tracker_dir,
+                filename = "existing_sim_particles.nc",
+                particle_tracker_keepbits = 23,
+                time_indices = :nonzero,
+            )
+
+            @test setup.spectral_grid === spectral_grid
+            @test setup.grid === spectral_grid.grid
+            @test setup.dist_km == 500
+            @test setup.particle_order == (:east, :west, :north, :south)
+            @test setup.particle_file_path == joinpath(tracker_dir, "existing_sim_particles.nc")
+            @test setup.time_semantics == :elapsed_hours_since_release
+            @test haskey(model.callbacks, :ftle_particle_tracker)
+
+            SpeedyWeather.initialize!(simulation; period = Day(0.25))
+            simulation.variables.grid.u[:, 1, 1] .= u
+            simulation.variables.grid.v[:, 1, 1] .= v
+            SpeedyWeather.initialize!(simulation.variables, simulation.variables.prognostic.particles, model)
+            SpeedyWeather.time_stepping!(simulation)
+            SpeedyWeather.finalize!(simulation)
+
+            @test isfile(setup.particle_file_path)
+            FTLE, time_hours = FTLE_from_particle_file(setup)
+            @test !isempty(time_hours)
+            @test size(FTLE) == (spectral_grid.npoints, length(time_hours))
+            @test any(isfinite, FTLE)
+
+            reread_FTLE, reread_time_hours = FTLE_from_particle_file(
+                setup.particle_file_path,
+                setup.spectral_grid,
+                setup.dist_km;
+                time_indices = setup.time_indices,
+            )
+            @test isequal(reread_FTLE, FTLE)
+            @test reread_time_hours == time_hours
+
+            @test_throws ArgumentError attach_FTLE_tracker!(
+                simulation;
+                dist_km = 500,
+                path = tracker_dir,
+                filename = "duplicate.nc",
+            )
+        finally
+            rm(tracker_dir; force = true, recursive = true)
+        end
     end
 end

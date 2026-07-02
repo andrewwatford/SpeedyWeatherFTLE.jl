@@ -12,9 +12,10 @@ pass an explicit colorbar label. `surface_plot` and `globe_plot` use the
 Makie-style keyword `label`. `slider_plot` accepts `colorbar_label` and also
 accepts `label` as an alias; pass only one of those two keywords.
 
-GLMakie is available for local interactive windows. The documentation build
-activates CairoMakie explicitly, which keeps GitHub Actions headless and still
-renders static figures and GIFs.
+Plotting methods load when GeoMakie is available. Use GeoMakie together with a
+Makie backend: CairoMakie for static/headless plots, or GLMakie for local
+interactive windows. The documentation build activates CairoMakie explicitly,
+which keeps GitHub Actions headless and still renders static figures and GIFs.
 
 Coastlines are visual context in these plotting helpers. They do not mask FTLE
 values, stop particles at land, or change the calculation. In the synthetic
@@ -29,6 +30,7 @@ grid, an FTLE matrix plus a grid, or a `RingGrids.Field`.
 
 ```@example plotting
 using CairoMakie
+using GeoMakie
 using RingGrids
 using SpeedyWeatherFTLE
 
@@ -202,6 +204,7 @@ For local interactive use, activate GLMakie before making the plot:
 
 ```julia
 using GLMakie
+using GeoMakie
 
 fig, ax, sp, cb = slider_plot(
     result;
@@ -250,6 +253,7 @@ For an interactive local globe:
 
 ```julia
 using GLMakie
+using GeoMakie
 
 fig, ax, sp, cb = globe_plot(
     result;

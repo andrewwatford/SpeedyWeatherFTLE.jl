@@ -40,13 +40,14 @@ directly:
 result = get_FTLE(u, v; backwards = true, return_result = true)
 ```
 
-For frozen prescribed flows, backward-time FTLE is computed by advecting the
-FTLE release stencil backward through the same static velocity field. For a
-truly unsteady flow, negative-time FTLE requires the inverse flow map through a
-reversed velocity history. The high-level prescribed-field API does not yet
-store and replay that evolving history, so examples use `dynamics = false` for
-negative-time calculations. The high-level API rejects
-`backwards = true, dynamics = true` with an `ArgumentError`.
+The high-level prescribed-field API supports frozen-flow particle tracking:
+leave `dynamics = false`. It rejects `dynamics = true` because it does not yet
+initialize SpeedyWeather prognostic state from the supplied `u`/`v` fields. For
+frozen prescribed flows, backward-time FTLE is computed by advecting the FTLE
+release stencil backward through the same static velocity field. A truly
+unsteady calculation requires an explicit SpeedyWeather workflow with a
+well-defined evolving state and, for negative-time FTLE, a reversed velocity
+history.
 
 ## Array Shapes
 
@@ -87,7 +88,9 @@ post-processed. It is available in [`get_FTLE`](@ref),
 
 Common selectors are:
 
-- `:nonzero`: skip the initial zero-duration sample where FTLE is undefined.
+- `:nonzero`: select all finite nonzero durations, including negative signed
+  durations from backward or externally generated trajectories.
+- `:positive`: select finite positive durations only.
 - `:last` or `:final`: compute only the final tracker sample.
 - `:` or `:all`: compute all tracker samples.
 - an integer, integer vector/range, or boolean mask: compute explicit samples.
@@ -112,9 +115,9 @@ comparison needs a clear choice of release time or averaging window for each
 frame, and is better represented by separate FTLE calculations with those
 choices made explicitly.
 
-If you want to compare materially different flow states, run separate FTLE
-experiments, for example one initialized from a summer-like jet and one from a
-winter-like jet, or one with `dynamics = false` and one with `dynamics = true`.
+If you want to compare materially different prescribed flow states, run
+separate frozen-flow FTLE experiments, for example one initialized from a
+summer-like jet and one from a winter-like jet.
 
 ## Coastlines and Land
 

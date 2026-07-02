@@ -18,6 +18,8 @@ monorepo packages from the `mk/lyapunov2` branch, then add
 SpeedyWeatherFTLE. This package depends on particle-tracking features from that
 branch that are not yet in registered SpeedyWeather releases.
 
+Requires Julia 1.12 or newer.
+
 ```julia
 using Pkg
 
@@ -31,7 +33,12 @@ Pkg.add([
 ])
 
 Pkg.add(PackageSpec(url = "https://github.com/andrewwatford/SpeedyWeatherFTLE.jl"))
-Pkg.add(["CairoMakie"])
+```
+
+For plotting examples, add GeoMakie plus a Makie backend such as CairoMakie:
+
+```julia
+Pkg.add(["CairoMakie", "GeoMakie"])
 ```
 
 For interactive GLMakie windows, add GLMakie separately:
@@ -41,8 +48,8 @@ For interactive GLMakie windows, add GLMakie separately:
 ```
 
 Julia resolves `using PackageName` from the active project. If a script imports
-`RingGrids`, `CairoMakie`, or `GLMakie` directly, add that package directly to
-the active project even when it is also an indirect dependency. First
+`RingGrids`, `CairoMakie`, `GeoMakie`, or `GLMakie` directly, add that package
+directly to the active project even when it is also an indirect dependency. First
 installation and precompilation can take several minutes with plotting
 backends.
 
@@ -54,6 +61,7 @@ dependency.
 
 ```@example quickstart
 using CairoMakie
+using GeoMakie
 using Random
 using RingGrids
 using SpeedyWeatherFTLE
@@ -139,7 +147,7 @@ julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
 ```
 
 This develops the local checkout into the docs environment and instantiates the
-docs dependencies.
+docs dependencies. The package requires Julia 1.12 or newer.
 
 For the package development environment itself:
 

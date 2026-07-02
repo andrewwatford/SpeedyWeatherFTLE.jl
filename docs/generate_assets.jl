@@ -1,4 +1,5 @@
 using CairoMakie
+using GeoMakie
 using RingGrids
 using SpeedyWeatherFTLE
 

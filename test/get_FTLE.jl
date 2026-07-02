@@ -15,7 +15,7 @@ using Test
 
         for dynamics in (true, false)
             for backwards in (true, false)
-                if backwards && dynamics
+                if dynamics
                     @test_throws ArgumentError get_FTLE(u, v; dynamics=dynamics, backwards=backwards)
                 else
                     FTLE, spectral_grid, time_hours = get_FTLE(u, v; dynamics=dynamics, backwards=backwards)
@@ -132,5 +132,52 @@ using Test
             particle_advection_every_n_time_steps = 1,
             time_indices = :middle,
         )
+
+        tracker_dir = mktempdir()
+        try
+            keep_result, _ = capture_stderr() do
+                positive_FTLE(
+                    u,
+                    v;
+                    simulation_days = 0.25,
+                    dynamics = false,
+                    rint_hours = 3,
+                    particle_advection_every_n_time_steps = 1,
+                    return_result = true,
+                    keep_particle_file = true,
+                    particle_tracker_path = tracker_dir,
+                    particle_tracker_filename = "kept_particles.nc",
+                    time_indices = :last,
+                )
+            end
+
+            @test isa(keep_result, FTLEResult)
+            @test keep_result.particle_file_path !== nothing
+            @test isfile(keep_result.particle_file_path)
+            rm(keep_result.particle_file_path; force=true)
+
+            path_result, _ = capture_stderr() do
+                positive_FTLE(
+                    u,
+                    v;
+                    simulation_days = 0.25,
+                    dynamics = false,
+                    rint_hours = 3,
+                    particle_advection_every_n_time_steps = 1,
+                    return_result = true,
+                    return_particle_file_path = true,
+                    particle_tracker_path = tracker_dir,
+                    particle_tracker_filename = "returned_path_particles.nc",
+                    time_indices = :last,
+                )
+            end
+
+            @test isa(path_result, FTLEResult)
+            @test path_result.particle_file_path !== nothing
+            @test isfile(path_result.particle_file_path)
+            rm(path_result.particle_file_path; force=true)
+        finally
+            rm(tracker_dir; force=true, recursive=true)
+        end
     end
 end

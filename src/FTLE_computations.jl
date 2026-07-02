@@ -1,26 +1,40 @@
 @inline _wrapped_lon_diff(lond1, lond2) = mod(lond1 - lond2 + 180, 360) - 180
 
+const _FTLE_PARTICLE_FILE_METADATA_PREFIX = "SpeedyWeatherFTLE_"
+const _FTLE_PARTICLE_FILE_DIST_KM_ATTRIBUTE = _FTLE_PARTICLE_FILE_METADATA_PREFIX * "dist_km"
+const _FTLE_PARTICLE_FILE_ORDER_ATTRIBUTE = _FTLE_PARTICLE_FILE_METADATA_PREFIX * "particle_order"
+const _FTLE_PARTICLE_FILE_KEEPBITS_ATTRIBUTE = _FTLE_PARTICLE_FILE_METADATA_PREFIX * "particle_tracker_keepbits"
+const _FTLE_PARTICLE_ORDER = "east,west,north,south"
+
 # ParticleTracker stores lon/lat as Float32 and may quantize mantissa bits.
-# This covers package-generated files down to roughly keepbits=10 while still
-# rejecting clearly incompatible stencils by default.
-const _INITIAL_POSITION_ATOL_DEGREES = 1.5e-1
+# This tolerance covers normal Float32/keepbits=15 output while rejecting common
+# 10 km vs 20 km stencil mistakes. Coarsely quantized legacy files should carry
+# metadata or opt out after external validation.
+const _INITIAL_POSITION_MIN_ATOL_DEGREES = 1.2e-2
+const _INITIAL_POSITION_RTOL = 5.0e-2
 
 function _check_dist_km(dist_km)
-    isfinite(dist_km) && dist_km > 0 ||
+    dist_km isa Real && isfinite(dist_km) && dist_km > 0 ||
         throw(ArgumentError("dist_km must be finite and positive"))
     return dist_km
 end
 
+function _check_positive_hours(value, name)
+    value isa Real && isfinite(value) && value > 0 ||
+        throw(ArgumentError("$name must be finite and positive"))
+    return value
+end
+
 function _duration_magnitude(time_value, name)
-    isfinite(time_value) ||
+    time_value isa Real && isfinite(time_value) ||
         throw(ArgumentError("$name must be finite"))
     return abs(float(time_value))
 end
 
 function _check_time_hours(time_hours)
     for i in eachindex(time_hours)
-        isfinite(time_hours[i]) ||
-            throw(ArgumentError("time_hours[$i] must be finite"))
+        time_hours[i] isa Real && isfinite(time_hours[i]) ||
+            throw(ArgumentError("time_hours[$i] must be real and finite"))
     end
     return nothing
 end
@@ -145,7 +159,9 @@ function _checked_time_indices(time_indices::Symbol, n_times, time_hours)
         return (1,)
     elseif time_indices in (:last, :final)
         return (n_times,)
-    elseif time_indices in (:nonzero, :positive)
+    elseif time_indices === :nonzero
+        return findall(t -> isfinite(t) && !iszero(t), time_hours)
+    elseif time_indices === :positive
         return findall(t -> isfinite(t) && t > 0, time_hours)
     else
         throw(ArgumentError("unsupported time_indices selector :$time_indices; use :, :all, :first, :last, :final, :nonzero, :positive, an integer index, or integer indices"))
@@ -177,6 +193,24 @@ function _checked_time_indices(time_indices, n_times, time_hours)
 end
 
 _selected_time_hours(time_hours, time_indices) = [Float64(time_hours[tindex]) for tindex in time_indices]
+
+function _check_particle_position_column(plonds, platds, tindex)
+    length(plonds) == length(platds) ||
+        throw(DimensionMismatch("particle longitude and latitude columns at time index $tindex must have the same length"))
+
+    for i in eachindex(plonds, platds)
+        lon = plonds[i]
+        lat = platds[i]
+        (ismissing(lon) || ismissing(lat)) &&
+            throw(ArgumentError("particle positions at time index $tindex contain missing values"))
+        lon isa Real && lat isa Real ||
+            throw(ArgumentError("particle positions at time index $tindex must be real-valued"))
+        isfinite(lon) && isfinite(lat) ||
+            throw(ArgumentError("particle positions at time index $tindex contain non-finite values"))
+    end
+
+    return nothing
+end
 
 """
     FTLE_from_particles!(
@@ -268,6 +302,7 @@ function FTLE_from_particles!(
         plonds = _particle_column(plonds_time, tindex)
         platds = _particle_column(platds_time, tindex)
 
+        _check_particle_position_column(plonds, platds, tindex)
         displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
         FTLE_over_grid!(view(FTLE_grid_time, :, out_index), B, thour)
     end
@@ -344,8 +379,20 @@ function FTLE_from_particles(
 end
 
 function _particle_file_time_hours(particles_ds)
-    time_vec = particles_ds["time"][:] # DateTime
-    return Float64.((time_vec .- time_vec[1]) ./ Hour(1)) # Hours since release time
+    time_vec = particles_ds["time"][:]
+    isempty(time_vec) &&
+        throw(ArgumentError("particle file time variable must contain at least one sample"))
+    first_time = time_vec[begin]
+    if first_time isa Real
+        _check_time_hours(time_vec)
+        return Float64.(time_vec .- first_time)
+    else
+        try
+            return Float64.((time_vec .- first_time) ./ Hour(1)) # Hours since release time
+        catch
+            throw(ArgumentError("particle file time variable must contain datetime samples or real-valued elapsed times"))
+        end
+    end
 end
 
 function _expected_initial_particle_positions(grid_or_spectral_grid, dist_km)
@@ -356,12 +403,95 @@ function _expected_initial_particle_positions(npoints::Integer, dist_km)
     throw(ArgumentError("initial-position validation requires a grid or SpectralGrid; pass validate_initial_positions=false to skip this compatibility check"))
 end
 
-function _validate_particle_file_initial_positions(particles_ds, grid_or_spectral_grid, dist_km)
-    haskey(particles_ds, "lon") || throw(ArgumentError("particle file must contain a lon variable"))
-    haskey(particles_ds, "lat") || throw(ArgumentError("particle file must contain a lat variable"))
-    dimsize(particles_ds["lon"]) == dimsize(particles_ds["lat"]) ||
-        throw(DimensionMismatch("particle file lon and lat variables must have the same dimensions"))
+function _particle_file_attribute(particles_ds, name)
+    haskey(particles_ds.attrib, name) || return nothing
+    return particles_ds.attrib[name]
+end
 
+function _write_FTLE_particle_file_metadata(path; dist_km, particle_tracker_keepbits)
+    particles_ds = NCDataset(path, "a")
+    try
+        particles_ds.attrib[_FTLE_PARTICLE_FILE_DIST_KM_ATTRIBUTE] = Float64(dist_km)
+        particles_ds.attrib[_FTLE_PARTICLE_FILE_ORDER_ATTRIBUTE] = _FTLE_PARTICLE_ORDER
+        particles_ds.attrib[_FTLE_PARTICLE_FILE_KEEPBITS_ATTRIBUTE] = Int(particle_tracker_keepbits)
+    finally
+        close(particles_ds)
+    end
+    return path
+end
+
+function _validate_particle_file_metadata(particles_ds, dist_km)
+    metadata_dist_km = _particle_file_attribute(particles_ds, _FTLE_PARTICLE_FILE_DIST_KM_ATTRIBUTE)
+    if metadata_dist_km !== nothing
+        metadata_dist_km isa Real ||
+            throw(ArgumentError("particle file FTLE metadata dist_km must be real-valued"))
+        isapprox(Float64(metadata_dist_km), Float64(dist_km); rtol=0, atol=eps(Float64) * max(abs(Float64(dist_km)), 1.0)) ||
+            throw(ArgumentError("particle file was generated with dist_km=$(metadata_dist_km), but post-processing requested dist_km=$(dist_km)"))
+    end
+
+    metadata_order = _particle_file_attribute(particles_ds, _FTLE_PARTICLE_FILE_ORDER_ATTRIBUTE)
+    if metadata_order !== nothing && String(metadata_order) != _FTLE_PARTICLE_ORDER
+        throw(ArgumentError("particle file FTLE metadata has particle_order=$(metadata_order), expected $(_FTLE_PARTICLE_ORDER)"))
+    end
+
+    return nothing
+end
+
+function _validate_particle_file_structure(particles_ds, grid_or_spectral_grid)
+    haskey(particles_ds.dim, "particle") ||
+        throw(ArgumentError("particle file must contain a particle dimension"))
+    haskey(particles_ds.dim, "time") ||
+        throw(ArgumentError("particle file must contain a time dimension"))
+
+    npoints = _grid_npoints(grid_or_spectral_grid)
+    expected_nparticles = 4 * npoints
+    actual_nparticles = particles_ds.dim["particle"]
+    actual_nparticles == expected_nparticles ||
+        throw(DimensionMismatch("particle file has $actual_nparticles particles, expected $expected_nparticles"))
+
+    n_times = particles_ds.dim["time"]
+    n_times > 0 ||
+        throw(ArgumentError("particle file time dimension must contain at least one sample"))
+
+    for variable_name in ("time", "lon", "lat")
+        haskey(particles_ds, variable_name) ||
+            throw(ArgumentError("particle file must contain a $variable_name variable"))
+    end
+
+    time_dims = dimnames(particles_ds["time"])
+    time_dims == ("time",) ||
+        throw(DimensionMismatch("particle file time variable must have dimensions (time), got $time_dims"))
+    length(particles_ds["time"]) == n_times ||
+        throw(DimensionMismatch("particle file time variable has length $(length(particles_ds["time"])), expected $n_times"))
+
+    expected_position_dims = ("particle", "time")
+    for variable_name in ("lon", "lat")
+        variable = particles_ds[variable_name]
+        variable_dims = dimnames(variable)
+        variable_dims == expected_position_dims ||
+            throw(DimensionMismatch("particle file $variable_name variable must have dimensions $expected_position_dims, got $variable_dims"))
+        variable_size = Tuple(dimsize(variable))
+        expected_size = (actual_nparticles, n_times)
+        variable_size == expected_size ||
+            throw(DimensionMismatch("particle file $variable_name variable has size $variable_size, expected $expected_size"))
+    end
+
+    return npoints, n_times
+end
+
+function _initial_position_atol_degrees(expected_plonds, expected_platds)
+    max_offset = 0.0
+    for i in firstindex(expected_plonds):4:lastindex(expected_plonds)
+        max_offset = max(
+            max_offset,
+            abs(_wrapped_lon_diff(expected_plonds[i], expected_plonds[i + 1])) / 2,
+            abs(expected_platds[i + 2] - expected_platds[i + 3]) / 2,
+        )
+    end
+    return max(_INITIAL_POSITION_MIN_ATOL_DEGREES, _INITIAL_POSITION_RTOL * max_offset)
+end
+
+function _validate_particle_file_initial_positions(particles_ds, grid_or_spectral_grid, dist_km)
     expected_plonds, expected_platds = _expected_initial_particle_positions(grid_or_spectral_grid, dist_km)
     actual_plonds = particles_ds["lon"][:, 1]
     actual_platds = particles_ds["lat"][:, 1]
@@ -384,8 +514,9 @@ function _validate_particle_file_initial_positions(particles_ds, grid_or_spectra
         max_lat_error = max(max_lat_error, lat_error)
     end
 
-    if max_lon_error > _INITIAL_POSITION_ATOL_DEGREES || max_lat_error > _INITIAL_POSITION_ATOL_DEGREES
-        throw(ArgumentError("particle file initial positions do not match the FTLE east/west/north/south stencil for this grid and dist_km (max longitude error $(max_lon_error)°, max latitude error $(max_lat_error)°); pass validate_initial_positions=false to skip this compatibility check"))
+    atol_degrees = _initial_position_atol_degrees(expected_plonds, expected_platds)
+    if max_lon_error > atol_degrees || max_lat_error > atol_degrees
+        throw(ArgumentError("particle file initial positions do not match the FTLE east/west/north/south stencil for this grid and dist_km (max longitude error $(max_lon_error)°, max latitude error $(max_lat_error)°, tolerance $(atol_degrees)°); if this is a coarsely quantized legacy file, regenerate it with SpeedyWeatherFTLE metadata or pass validate_initial_positions=false only after external validation"))
     end
 
     return nothing
@@ -393,11 +524,8 @@ end
 
 function _validate_particle_file(particles_ds, grid_or_spectral_grid, dist_km; validate_initial_positions=true)
     _check_dist_km(dist_km)
-    npoints = _grid_npoints(grid_or_spectral_grid)
-    expected_nparticles = 4 * npoints
-    actual_nparticles = particles_ds.dim["particle"]
-    actual_nparticles == expected_nparticles ||
-        throw(DimensionMismatch("particle file has $actual_nparticles particles, expected $expected_nparticles"))
+    _validate_particle_file_structure(particles_ds, grid_or_spectral_grid)
+    _validate_particle_file_metadata(particles_ds, dist_km)
 
     if validate_initial_positions
         _validate_particle_file_initial_positions(particles_ds, grid_or_spectral_grid, dist_km)

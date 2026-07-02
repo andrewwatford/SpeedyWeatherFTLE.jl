@@ -14,18 +14,21 @@ Simulation progress and warnings use SpeedyWeather's normal output behavior, so
 longer particle-tracking runs remain transparent in scripts and notebooks.
 
 `get_FTLE(u, v)` creates and runs a new SpeedyWeather model internally. It is
-the most convenient route for prescribed barotropic fields, but it is not yet a
-first-class API for an existing SpeedyWeather `Model` or `Simulation` with
-custom state, callbacks, layers, output handling, or release windows.
+the most convenient route for prescribed frozen barotropic fields. The wrapper
+rejects `dynamics = true` because it does not yet initialize SpeedyWeather
+prognostic state from the supplied `u`/`v` fields.
 
-For existing SpeedyWeather workflows, use the lower-level pieces directly:
+For existing SpeedyWeather workflows, attach FTLE particles and a tracker to
+your own simulation:
 
-- [`initial_FTLE_particle_positions`](@ref) creates the east, west, north,
-  south release stencil around each FTLE grid point.
-- SpeedyWeather's `ParticleTracker` writes the particle trajectory file during
-  your simulation.
-- [`FTLE_from_particle_file`](@ref) post-processes an FTLE-compatible saved
-  tracker file using the same grid and `dist_km`.
+- [`prepare_FTLE_particles!`](@ref) mutates the simulation's particles into the
+  east, west, north, south FTLE release stencil.
+- [`attach_FTLE_tracker!`](@ref) prepares those particles, attaches a
+  SpeedyWeather `ParticleTracker`, and returns an [`FTLEParticleSetup`](@ref)
+  with the grid, `dist_km`, particle order, output path, and elapsed-time
+  semantics needed for safe post-processing.
+- [`FTLE_from_particle_file`](@ref) post-processes the saved tracker setup or
+  file without copying internals from [`get_FTLE`](@ref).
 
 See [Particle Files](particle_files.md) for the file requirements and current
 validation behavior.
@@ -94,15 +97,11 @@ negative = negative_FTLE(
 Use `time_indices = :last` when you only need the final output. This avoids
 post-processing intermediate tracker columns.
 
-!!! warning "Frozen-flow backward integration only"
-    True negative-time FTLE in an unsteady flow requires the inverse flow map
-    through the reversed velocity history. The prescribed-field wrapper does
-    not currently store and replay an evolving SpeedyWeather velocity history.
-    Use `negative_FTLE(...; dynamics = false)` for frozen-flow backward
-    integration. Do not interpret `backwards = true` together with an evolving
-    forward model as a true unsteady negative-time FTLE calculation; the
-    high-level API now rejects `backwards = true, dynamics = true` with an
-    `ArgumentError`.
+!!! warning "Frozen prescribed fields only"
+    The prescribed-field wrapper currently supports frozen-flow particle
+    tracking only. It rejects `dynamics = true` for both positive- and
+    negative-time runs because assigning `u`/`v` grid arrays is not enough to
+    define a consistent evolving SpeedyWeather prognostic state.
 
 ## Comparing Flow States
 
@@ -125,6 +124,7 @@ plots are map-reading aids only, not land barriers or masks.
 
 ```@example meandering_jets
 using CairoMakie
+using GeoMakie
 using RingGrids
 using SpeedyWeatherFTLE
 
@@ -200,8 +200,8 @@ common_kwargs = (
     time_indices = :last,
 )
 
-summer = positive_FTLE(summer_u, summer_v; common_kwargs..., dynamics = true)
-winter = positive_FTLE(winter_u, winter_v; common_kwargs..., dynamics = true)
+summer = positive_FTLE(summer_u, summer_v; common_kwargs..., dynamics = false)
+winter = positive_FTLE(winter_u, winter_v; common_kwargs..., dynamics = false)
 
 shared_colorrange = ftle_colorrange(final_ftle(summer), final_ftle(winter))
 
@@ -221,41 +221,73 @@ display(fig_summer)
 display(fig_winter)
 ```
 
-To isolate the effect of SpeedyWeather's evolving dynamics, keep the same
-initial velocity field and compare a frozen-flow run against an evolving-flow
-run:
+## Existing SpeedyWeather Simulation
+
+When you already own the SpeedyWeather `Model` and `Simulation`, configure
+SpeedyWeather particle advection with four particles per grid point, attach the
+FTLE tracker, run the simulation, then post-process the returned setup.
+
+This example uses a frozen barotropic field to keep the code short, but the
+same FTLE particle/tracker setup can be attached to a custom SpeedyWeather
+simulation whose state you initialize yourself.
 
 ```julia
-frozen = positive_FTLE(
-    winter_u,
-    winter_v;
-    common_kwargs...,
+using RingGrids
+using SpeedyWeather
+using SpeedyWeatherFTLE
+
+spectral_grid = SpectralGrid(nlayers = 1, trunc = 4, Grid = FullClenshawGrid)
+particle_advection = ParticleAdvection2D(
+    spectral_grid;
+    nparticles = 4 * spectral_grid.npoints,
+    backwards = false,
+    every_n_time_steps = 1,
+)
+
+model = BarotropicModel(
+    spectral_grid;
     dynamics = false,
+    particle_advection,
+)
+simulation = initialize!(model)
+
+setup = attach_FTLE_tracker!(
+    simulation;
+    dist_km = 25,
+    rint_hours = 6,
+    path = "particle_output",
+    filename = "ftle_particles.nc",
+    particle_tracker_keepbits = 20,
+    time_indices = :nonzero,
 )
 
-evolving = positive_FTLE(
-    winter_u,
-    winter_v;
-    common_kwargs...,
-    dynamics = true,
+SpeedyWeather.initialize!(simulation; period = Day(1))
+
+# Initialize your model state here. For a frozen prescribed-flow example:
+u = rand(spectral_grid.grid)
+v = rand(spectral_grid.grid)
+simulation.variables.grid.u[:, 1, 1] .= u
+simulation.variables.grid.v[:, 1, 1] .= v
+SpeedyWeather.initialize!(
+    simulation.variables,
+    simulation.variables.prognostic.particles,
+    model,
 )
 
-evolution_colorrange = ftle_colorrange(frozen, evolving)
+SpeedyWeather.time_stepping!(simulation)
+SpeedyWeather.finalize!(simulation)
 
-fig_frozen, ax_frozen, sp_frozen, cb_frozen = surface_plot(
-    frozen;
-    title = "Frozen-flow FTLE after $(only(frozen.time_hours)) h",
-    colorrange = evolution_colorrange,
-)
+FTLE_grid_time, time_hours = FTLE_from_particle_file(setup)
+```
 
-fig_evolving, ax_evolving, sp_evolving, cb_evolving = surface_plot(
-    evolving;
-    title = "Evolving-flow FTLE after $(only(evolving.time_hours)) h",
-    colorrange = evolution_colorrange,
-)
+The returned `setup` stores:
 
-display(fig_frozen)
-display(fig_evolving)
+```julia
+setup.spectral_grid
+setup.dist_km
+setup.particle_order
+setup.particle_file_path
+setup.time_semantics
 ```
 
 For an integration-duration sweep from a single release, set

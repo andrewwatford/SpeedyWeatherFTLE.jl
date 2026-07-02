@@ -146,6 +146,249 @@ function perturb_positions_FTLE(particles, londs, latds, dist_km)
     end
 end
 
+const _FTLE_PARTICLE_ORDER_SYMBOLS = (:east, :west, :north, :south)
+
+"""
+    FTLEParticleSetup
+
+Metadata returned by [`prepare_FTLE_particles!`](@ref) and
+[`attach_FTLE_tracker!`](@ref).
+
+The setup records the grid and `dist_km` needed for safe post-processing, the
+particle order expected by the finite-difference reconstruction, the saved
+particle file path when a tracker has been attached, and the default
+`time_indices` selector to use when converting the saved trajectory file into
+FTLE values.
+"""
+struct FTLEParticleSetup{S, G, T, P, I}
+    spectral_grid::S
+    grid::G
+    dist_km::Float64
+    particle_order::NTuple{4, Symbol}
+    particle_file_path::P
+    tracker::T
+    callback_name::Union{Nothing, Symbol}
+    particle_tracker_keepbits::Union{Nothing, Int}
+    time_semantics::Symbol
+    time_indices::I
+end
+
+function _simulation_model(simulation)
+    hasproperty(simulation, :model) ||
+        throw(ArgumentError("expected a SpeedyWeather Simulation with a model field"))
+    return simulation.model
+end
+
+function _simulation_spectral_grid(simulation)
+    model = _simulation_model(simulation)
+    hasproperty(model, :spectral_grid) ||
+        throw(ArgumentError("simulation.model must expose a spectral_grid"))
+    return model.spectral_grid
+end
+
+function _ftle_setup(
+    spectral_grid,
+    dist_km;
+    particle_file_path=nothing,
+    tracker=nothing,
+    callback_name=nothing,
+    particle_tracker_keepbits=nothing,
+    time_indices=Colon(),
+)
+    return FTLEParticleSetup(
+        spectral_grid,
+        _spatial_grid(spectral_grid),
+        Float64(dist_km),
+        _FTLE_PARTICLE_ORDER_SYMBOLS,
+        particle_file_path,
+        tracker,
+        callback_name,
+        particle_tracker_keepbits,
+        :elapsed_hours_since_release,
+        time_indices,
+    )
+end
+
+"""
+    prepare_FTLE_particles!(simulation; dist_km = 10, spectral_grid = simulation.model.spectral_grid)
+
+Mutate an existing SpeedyWeather simulation's particles into the canonical FTLE
+release stencil.
+
+The simulation must already have a particle-advection scheme with four
+particles per grid point. The helper writes particles in east, west, north,
+south order and returns an [`FTLEParticleSetup`](@ref) containing the grid,
+`dist_km`, particle order, and time semantics needed for later
+post-processing.
+"""
+function prepare_FTLE_particles!(
+    simulation;
+    dist_km=10,
+    spectral_grid=_simulation_spectral_grid(simulation),
+    time_indices=Colon(),
+)
+    _check_dist_km(dist_km)
+    londs, latds = RingGrids.get_londlatds(_spatial_grid(spectral_grid))
+    hasproperty(simulation, :variables) &&
+        hasproperty(simulation.variables, :prognostic) &&
+        hasproperty(simulation.variables.prognostic, :particles) ||
+        throw(ArgumentError("simulation.variables.prognostic.particles is required to prepare FTLE particles"))
+
+    perturb_positions_FTLE(simulation.variables.prognostic.particles, londs, latds, dist_km)
+    return _ftle_setup(spectral_grid, dist_km; time_indices)
+end
+
+"""
+    attach_FTLE_tracker!(simulation; kwargs...)
+
+Prepare FTLE particles, attach a SpeedyWeather `ParticleTracker` callback, and
+return metadata for post-processing.
+
+The simulation's model must already include a particle-advection scheme with
+four particles per grid point. By default, particle output is written to a fresh
+temporary directory so the returned `particle_file_path` is stable. Pass an
+explicit `path` when you want to keep the file in a known location.
+
+# Keyword Arguments
+
+- `dist_km = 10`: FTLE particle perturbation distance in kilometres.
+- `rint_hours = 3`: particle output cadence in hours.
+- `path = mktempdir()`: directory for the particle file; must be non-empty.
+- `filename = "particles.nc"`: particle file name.
+- `particle_tracker_keepbits = 15`: mantissa bits retained in NetCDF output.
+- `particle_tracker_compression_level = 1`: NetCDF compression level, from
+  `0` to `9`.
+- `particle_tracker_shuffle = false`: enable the NetCDF shuffle filter.
+- `callback_name = :ftle_particle_tracker`: callback key in
+  `simulation.model.callbacks`.
+- `replace = false`: pass `true` to replace an existing callback with the same
+  name.
+- `time_indices = :`: default time selector used by
+  `FTLE_from_particle_file(setup)`.
+- `prepare_particles = true`: set to `false` only if you have already called
+  [`prepare_FTLE_particles!`](@ref) with matching metadata.
+"""
+function attach_FTLE_tracker!(
+    simulation;
+    dist_km=10,
+    rint_hours=3,
+    path=mktempdir(; prefix="speedyweatherftle-particles-"),
+    filename="particles.nc",
+    particle_tracker_keepbits=15,
+    particle_tracker_compression_level=1,
+    particle_tracker_shuffle=false,
+    callback_name::Symbol=:ftle_particle_tracker,
+    replace::Bool=false,
+    time_indices=Colon(),
+    prepare_particles::Bool=true,
+)
+    _check_dist_km(dist_km)
+    _check_positive_hours(rint_hours, "rint_hours")
+    particle_tracker_keepbits >= 1 || throw(ArgumentError("particle_tracker_keepbits must be positive"))
+    0 <= particle_tracker_compression_level <= 9 ||
+        throw(ArgumentError("particle_tracker_compression_level must be between 0 and 9"))
+    isempty(path) &&
+        throw(ArgumentError("attach_FTLE_tracker! requires a non-empty path so particle_file_path is known"))
+    isempty(filename) && throw(ArgumentError("filename must be non-empty"))
+
+    model = _simulation_model(simulation)
+    spectral_grid = _simulation_spectral_grid(simulation)
+
+    if !replace && haskey(model.callbacks, callback_name)
+        throw(ArgumentError("simulation.model.callbacks already has callback $callback_name; pass replace=true to replace it"))
+    end
+
+    mkpath(path)
+    if prepare_particles
+        prepare_FTLE_particles!(simulation; dist_km, spectral_grid, time_indices)
+    end
+
+    particle_tracker = ParticleTracker(
+        spectral_grid;
+        schedule=Schedule(every=Hour(rint_hours)),
+        keepbits=particle_tracker_keepbits,
+        compression_level=particle_tracker_compression_level,
+        shuffle=particle_tracker_shuffle,
+        path,
+        filename,
+    )
+    model.callbacks[callback_name] = particle_tracker
+
+    return _ftle_setup(
+        spectral_grid,
+        dist_km;
+        particle_file_path=joinpath(path, filename),
+        tracker=particle_tracker,
+        callback_name,
+        particle_tracker_keepbits=Int(particle_tracker_keepbits),
+        time_indices,
+    )
+end
+
+function _particle_setup_path(setup::FTLEParticleSetup)
+    setup.particle_file_path !== nothing ||
+        throw(ArgumentError("FTLEParticleSetup has no particle_file_path; use attach_FTLE_tracker! before file post-processing"))
+    isfile(setup.particle_file_path) ||
+        throw(ArgumentError("particle file $(setup.particle_file_path) does not exist; run and finalize the SpeedyWeather simulation before post-processing"))
+    return setup.particle_file_path
+end
+
+function _write_particle_setup_metadata(setup::FTLEParticleSetup)
+    path = _particle_setup_path(setup)
+    keepbits = setup.particle_tracker_keepbits === nothing ? 15 : setup.particle_tracker_keepbits
+    _write_FTLE_particle_file_metadata(path; dist_km=setup.dist_km, particle_tracker_keepbits=keepbits)
+    return path
+end
+
+"""
+    FTLE_from_particle_file(setup::FTLEParticleSetup; time_indices = setup.time_indices, validate_initial_positions = true)
+
+Post-process the particle file recorded by [`attach_FTLE_tracker!`](@ref).
+
+This convenience method writes SpeedyWeatherFTLE compatibility metadata to the
+saved particle file before calling the path-based
+[`FTLE_from_particle_file`](@ref).
+"""
+function FTLE_from_particle_file(
+    setup::FTLEParticleSetup;
+    time_indices=setup.time_indices,
+    validate_initial_positions=true,
+)
+    path = _write_particle_setup_metadata(setup)
+    return FTLE_from_particle_file(
+        path,
+        setup.spectral_grid,
+        setup.dist_km;
+        time_indices,
+        validate_initial_positions,
+    )
+end
+
+"""
+    FTLE_from_particle_file!(FTLE_grid_time, B, setup::FTLEParticleSetup; kwargs...)
+
+In-place companion to [`FTLE_from_particle_file`](@ref) for an
+[`FTLEParticleSetup`](@ref).
+"""
+function FTLE_from_particle_file!(
+    FTLE_grid_time,
+    B,
+    setup::FTLEParticleSetup;
+    time_indices=setup.time_indices,
+    validate_initial_positions=true,
+)
+    path = _write_particle_setup_metadata(setup)
+    return FTLE_from_particle_file!(
+        FTLE_grid_time,
+        B,
+        path,
+        setup.spectral_grid,
+        setup.dist_km;
+        time_indices,
+        validate_initial_positions,
+    )
+end
+
 """
     get_FTLE(u::Field, v::Field; kwargs...)
 
@@ -163,9 +406,9 @@ particle positions are post-processed with [`FTLE_from_particle_file`](@ref).
 - `simulation_days = 10`: simulation duration in days.
 - `dist_km = 10`: particle perturbation distance in kilometres.
 - `backwards = false`: run backward in time for negative-time FTLE.
-- `dynamics = false`: keep the prescribed velocity field static when `false`.
-  `backwards = true` with `dynamics = true` is rejected because evolving-flow
-  negative-time FTLE requires a reversed velocity history.
+- `dynamics = false`: required. The prescribed-field wrapper supports frozen
+  supplied velocity fields only; `dynamics = true` is rejected because it does
+  not yet initialize SpeedyWeather prognostic state from `u`/`v`.
 - `rint_hours = 3`: particle output cadence in hours.
 - `model_type = BarotropicModel`: SpeedyWeather model type.
 - `particle_advection_every_n_time_steps = 6`: particle advection cadence.
@@ -178,7 +421,8 @@ particle positions are post-processed with [`FTLE_from_particle_file`](@ref).
 - `keep_particle_file = false`: keep the particle file after FTLE computation.
 - `return_particle_file_path = false`: return the particle file path and keep
   the file.
-- `return_result = false`: return an [`FTLEResult`](@ref) instead of a tuple.
+- `return_result = false`: when true, return an [`FTLEResult`](@ref) instead
+  of a tuple.
 - `time_indices = :`: particle-tracker output columns to post-process.
 
 Supported `time_indices` values are `:`, `:all`, `:first`, `:last`, `:final`,
@@ -225,7 +469,7 @@ function get_FTLE(
         simulation_days: number of days to run the simulation for
         dist_km: initial perturbation for released particles in km
         backwards: if true, run simulation backwards in time
-        dynamics: if false, disables SpeedyWeather dynamics (makes velocity field static)
+        dynamics: must be false; the prescribed-field wrapper supports frozen velocity fields only
         rint_hours: sampling time for recording the positions of particles
         particle_advection_every_n_time_steps: advect particles every n model timesteps
         particle_tracker_keepbits: mantissa bits retained when particle positions are written to netCDF
@@ -254,11 +498,11 @@ function get_FTLE(
         error("Velocity fields u and v must be defined on the same grid")
     end
     _check_dist_km(dist_km)
-    if backwards && dynamics
-        throw(ArgumentError("backwards=true with dynamics=true is not supported: evolving-flow negative-time FTLE requires a reversed velocity history; use dynamics=false for frozen-flow backward integration"))
+    if dynamics
+        throw(ArgumentError("dynamics=true is not supported by the prescribed-field get_FTLE(u, v) wrapper: it does not yet initialize SpeedyWeather prognostic state from the supplied u/v fields; use dynamics=false for frozen-flow particle tracking"))
     end
     particle_advection_every_n_time_steps >= 1 || throw(ArgumentError("particle_advection_every_n_time_steps must be at least 1"))
-    rint_hours > 0 || throw(ArgumentError("rint_hours must be positive"))
+    _check_positive_hours(rint_hours, "rint_hours")
     particle_tracker_keepbits >= 1 || throw(ArgumentError("particle_tracker_keepbits must be positive"))
     0 <= particle_tracker_compression_level <= 9 ||
         throw(ArgumentError("particle_tracker_compression_level must be between 0 and 9"))
@@ -329,6 +573,7 @@ function get_FTLE(
     should_keep_particle_file = keep_particle_file || return_particle_file_path
 
     try
+        _write_FTLE_particle_file_metadata(path; dist_km, particle_tracker_keepbits)
         FTLE_grid_time, time_hours = FTLE_from_particle_file(path, spectral_grid, dist_km; time_indices)
         if return_result
             return FTLEResult(
@@ -394,8 +639,11 @@ function negative_FTLE(u::Field, v::Field; kwargs...)
 end
 
 export get_FTLE
+export FTLEParticleSetup
 export initial_FTLE_particle_positions!
 export initial_FTLE_particle_positions
+export prepare_FTLE_particles!
+export attach_FTLE_tracker!
 export positive_FTLE
 export negative_FTLE
 export Re

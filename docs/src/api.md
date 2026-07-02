@@ -10,6 +10,9 @@ CurrentModule = SpeedyWeatherFTLE
 get_FTLE
 positive_FTLE
 negative_FTLE
+FTLEParticleSetup
+prepare_FTLE_particles!
+attach_FTLE_tracker!
 FTLEResult
 final_ftle
 final_ftle_field

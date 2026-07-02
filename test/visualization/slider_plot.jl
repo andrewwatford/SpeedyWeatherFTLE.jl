@@ -1,4 +1,4 @@
-using GeoMakie, Makie
+using GeoMakie
 using SpeedyWeather
 using SpeedyWeatherFTLE
 
@@ -42,6 +42,20 @@ using SpeedyWeatherFTLE
 
     @test generic_handle.slidergrid.labels[1].text[] == "Time [h]"
     @test generic_handle.time_label.text[] == "t = 1 h"
+
+    fig, ax, sp, cb = slider_plot(
+        collect(1:5),
+        field_ts;
+        lon = -180:60:180,
+        lat = -90:30:90,
+        coastlines = false,
+        colorbar = false,
+    )
+
+    @test isa(fig, Figure)
+    @test isa(ax, GeoAxis)
+    @test isa(sp, GeoMakie.Surface)
+    @test cb === nothing
 
     fig, ax, sp, cb = slider_plot(
         collect(1:5),
@@ -235,6 +249,27 @@ using SpeedyWeatherFTLE
         @test handle.slider.value[] == 3
         @test_throws ArgumentError set_slider_time!(handle, -Inf)
 
+        negative_result = FTLEResult(
+            FTLE,
+            spectral_grid,
+            collect(0.0:-1.0:-4.0);
+            dist_km = 10,
+            backwards = true,
+            dynamics = false,
+            rint_hours = 1,
+        )
+
+        negative_handle = slider_plot(
+            negative_result;
+            colorbar = false,
+            coastlines = false,
+            return_handle = true,
+        )
+
+        @test isa(negative_handle, SliderPlotHandle)
+        @test negative_handle.times == collect(-1.0:-1.0:-4.0)
+        @test negative_handle.time_label.text[] == "Integration time = -1.0 h"
+
         compact_handle = slider_plot(
             result;
             title = title,
@@ -296,5 +331,27 @@ using SpeedyWeatherFTLE
 
         @test public_returned_path == "public-ftle-slider.gif"
         @test public_recorded_frames == [1, 2]
+
+        negative_recorded_frames = Int[]
+        negative_fake_record(callback, fig, path, frames; framerate, kwargs...) = begin
+            @test isa(fig, Figure)
+            @test path == "negative-ftle-slider.gif"
+            for frame in frames
+                push!(negative_recorded_frames, frame)
+                callback(frame)
+            end
+            path
+        end
+
+        negative_returned_path = animate_slider_plot(
+            "negative-ftle-slider.gif",
+            negative_result;
+            record_function = negative_fake_record,
+            colorbar = false,
+            coastlines = false,
+        )
+
+        @test negative_returned_path == "negative-ftle-slider.gif"
+        @test negative_recorded_frames == [1, 2, 3, 4]
     end
 end

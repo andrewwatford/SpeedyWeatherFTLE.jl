@@ -1,7 +1,7 @@
 # SpeedyWeatherFTLE
 
 [![Build Status](https://github.com/andrewwatford/SpeedyWeatherFTLE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/andrewwatford/SpeedyWeatherFTLE.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![docs](https://img.shields.io/badge/documentation-latest_release-blue.svg)](https://andrewwatford.github.io/SpeedyWeatherFTLE.jl/)
+[![docs](https://img.shields.io/badge/documentation-main-blue.svg)](https://andrewwatford.github.io/SpeedyWeatherFTLE.jl/)
 
 SpeedyWeatherFTLE computes finite-time Lyapunov exponents (FTLEs) from
 SpeedyWeather particle trajectories. It can run a SpeedyWeather particle
@@ -10,6 +10,8 @@ negative-time FTLE, reuse saved `ParticleTracker` NetCDF files, and convert
 FTLE arrays to RingGrids fields for plotting.
 
 ## Installation
+
+Requires Julia 1.12 or newer.
 
 SpeedyWeatherFTLE currently depends on particle-tracking features from the
 `mk/lyapunov2` branch of the SpeedyWeather monorepo. Install those source
@@ -28,13 +30,20 @@ Pkg.add([
 ])
 
 Pkg.add(PackageSpec(url = "https://github.com/andrewwatford/SpeedyWeatherFTLE.jl"))
-Pkg.add(["CairoMakie"])
 ```
 
-Then load the packages in Julia with:
+For plotting, add GeoMakie plus a Makie backend such as CairoMakie:
+
+```julia
+Pkg.add(["CairoMakie", "GeoMakie"])
+```
+
+Compute-only workflows can load just SpeedyWeatherFTLE. Plotting workflows load
+the plotting packages too:
 
 ```julia
 using CairoMakie
+using GeoMakie
 using RingGrids
 using SpeedyWeatherFTLE
 ```
@@ -92,8 +101,7 @@ transitively when this package is added as a dependency.
 The richest examples live in the documentation:
 
 - `docs/src/simulation.md` shows SpeedyWeather particle-tracking workflows,
-  including a summer-like versus winter-like meandering jet comparison and an
-  evolving-flow versus frozen-flow recipe.
+  including a summer-like versus winter-like meandering jet comparison.
 - `docs/src/plotting.md` shows static maps, integration-horizon sliders,
   generated GIFs, and globe plots.
 
@@ -101,6 +109,7 @@ The richest examples live in the documentation:
 
 ```julia
 using CairoMakie
+using GeoMakie
 using Random
 using RingGrids
 using SpeedyWeatherFTLE
@@ -128,12 +137,10 @@ This example uses random abstract velocity fields, so the plot disables
 coastlines. For geophysical fields, leave coastlines on or style them as visual
 context.
 
+The prescribed-field API is a frozen-flow wrapper: leave `dynamics = false`.
 Use `negative_FTLE` for backward-time FTLE in frozen prescribed flows. Pass
 `time_indices = :last` or `:final` when only the final tracker sample is
 needed, or `:nonzero` to skip the initial `0 h` sample where FTLE is undefined.
-The high-level prescribed-field API does not yet provide a true unsteady
-negative-time FTLE workflow that replays the reversed velocity history of an
-evolving SpeedyWeather simulation.
 
 Saved particle files can be post-processed without rerunning the simulation:
 
@@ -156,7 +163,8 @@ FTLE, time_hours = FTLE_from_particle_file(
 
 ## Setting up the project for development
 To set up the project for development for the first time, first clone this
-repository. Then, from the repository directory, open `julia` and run:
+repository. Requires Julia 1.12 or newer. Then, from the repository directory,
+open `julia` and run:
 
 ```julia
 ] activate .

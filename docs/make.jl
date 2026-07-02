@@ -1,5 +1,6 @@
 using CairoMakie
 using Documenter
+using GeoMakie
 using SpeedyWeatherFTLE
 
 CairoMakie.activate!()
