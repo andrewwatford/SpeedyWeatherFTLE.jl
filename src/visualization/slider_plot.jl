@@ -126,7 +126,9 @@ Plot FTLE values for different integration horizons with a Makie slider.
 zero-duration sample is skipped by default because FTLE is undefined at
 `t = 0`; pass `start_index = 1` to include it. For FTLE outputs, the slider
 shows different integration durations from the same particle release, not a
-time series of independent instantaneous FTLE fields. FTLE array and result
+time series of independent instantaneous FTLE fields. Interpreting slider
+frames as an evolving-flow diagnostic requires explicit release times or
+windows for each frame, which is a separate calculation. FTLE array and result
 inputs label the colorbar as `FTLE [1/h]` and the slider as
 `Integration time [h]` by default; pass `colorbar_label = nothing` to suppress
 the colorbar label.

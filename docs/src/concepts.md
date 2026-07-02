@@ -62,9 +62,16 @@ Common selectors are:
 
 When you keep multiple tracker output times, the columns of `FTLE_grid_time`
 are FTLE estimates for different integration durations from the same particle
-release. They should not be interpreted as a conventional time series of
-instantaneous fields. A slider over those columns is best read as: "What
-stretching rate do I infer after integrating for 6 h, 12 h, 18 h, ...?"
+release. This is not a conventional time series of instantaneous FTLE fields.
+FTLE is a finite-window diagnostic: each column answers what stretching rate is
+inferred over an interval of length `T`, for example after integrating for 6 h,
+12 h, 18 h, and so on.
+
+The slider plots in these docs therefore sweep integration horizons. They do
+not show a single FTLE field evolving in time. A genuine evolving-flow
+comparison needs a clear choice of release time or averaging window for each
+frame, and is better represented by separate FTLE calculations with those
+choices made explicitly.
 
 If you want to compare materially different flow states, run separate FTLE
 experiments, for example one initialized from a summer-like jet and one from a

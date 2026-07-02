@@ -98,8 +98,10 @@ duration, not a conventional time series of instantaneous FTLE fields.
 
 !!! note "Integration horizons, not an FTLE time series"
     Each slider frame uses the same particle release and a different integration
-    duration. Reading the sequence as an evolving FTLE field would imply a new
-    particle release for each frame, which is a different diagnostic.
+    duration. In other words, the slider sweeps the finite window length `T`;
+    it does not show a single FTLE field evolving in time. Reading the sequence
+    as an evolving-flow diagnostic would require explicit release times or
+    windows for each frame, which is a different calculation.
 
 ```@example plotting
 time_hours = collect(6.0:6.0:72.0)
@@ -129,8 +131,8 @@ fig, ax, sp, cb = slider_plot(
 
 The zero-duration tracker sample is skipped by default because FTLE is
 undefined at `t = 0`. Pass `start_index = 1` if you explicitly want to include
-that column. Slider plots show the active slider value above the slider by
-default; set `time_label = false` to hide it, or pass `time_label_format` to
+that column. Slider plots show the active integration horizon above the slider
+by default; set `time_label = false` to hide it, or pass `time_label_format` to
 customize it. FTLE inputs use integration-time wording for the slider controls;
 generic time-dependent fields keep the usual `Time [h]` default.
 As with static maps, pass `axis_kwargs`, `surface_kwargs`, `colorbar_kwargs`,

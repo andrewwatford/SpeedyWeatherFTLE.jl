@@ -62,7 +62,9 @@ fig
 
 For an interactive local integration-horizon plot, use [`slider_plot`](@ref).
 In the static documentation build the slider is rendered but not interactive;
-with GLMakie locally it is interactive.
+with GLMakie locally it is interactive. The slider sweeps the selected
+integration durations from the same particle release; it is not an FTLE time
+series.
 
 ```@example quickstart
 fig, ax, sp, cb = slider_plot(

@@ -218,8 +218,10 @@ display(fig_evolving)
 
 For an integration-duration sweep from a single release, set
 `time_indices = :nonzero` and pass the returned result to [`slider_plot`](@ref).
-Read that slider as different FTLE integration horizons, not as an independent
-time series of flow states.
+Read that slider as different FTLE integration horizons from the same release,
+not as an independent time series of flow states. A flow-state comparison needs
+separate FTLE runs with explicit release times, windows, or initial conditions,
+as in the examples above.
 
 ## Tuple Return Mode
 
