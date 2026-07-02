@@ -46,13 +46,15 @@ result.direction, result.time_hours, result.dist_km
 ```
 
 To plot the final selected output time, pass the result directly to
-[`surface_plot`](@ref).
+[`surface_plot`](@ref). This quickstart uses random abstract velocity fields,
+so coastlines are disabled; use them as visual context for geophysical fields.
 
 ```@example quickstart
 fig, ax, sp, cb = surface_plot(
     result;
     title = "Positive-time FTLE after $(result.time_hours[end]) hours",
     label = "FTLE [1/h]",
+    coastlines = false,
 )
 
 fig
@@ -67,6 +69,7 @@ fig, ax, sp, cb = slider_plot(
     result;
     title = "Positive-time FTLE",
     colorbar_label = "FTLE [1/h]",
+    coastlines = false,
 )
 
 fig

@@ -69,9 +69,12 @@ result = positive_FTLE(
     time_indices = :nonzero,
 )
 
-field = final_ftle_field(result)
-fig, ax, sp, cb = surface_plot(final_ftle(result), result.spectral_grid)
+fig, ax, sp, cb = surface_plot(result; coastlines = false)
 ```
+
+This example uses random abstract velocity fields, so the plot disables
+coastlines. For geophysical fields, leave coastlines on or style them as visual
+context.
 
 Use `negative_FTLE` for backward-time FTLE. Pass `time_indices = :last` or
 `:final` when only the final tracker sample is needed, or `:nonzero` to skip

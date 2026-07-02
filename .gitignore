@@ -1,3 +1,4 @@
 /Manifest*.toml
 **/*.nc
 .dev/*
+/docs/build/
