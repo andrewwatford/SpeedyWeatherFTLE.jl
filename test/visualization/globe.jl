@@ -80,6 +80,26 @@ using SpeedyWeatherFTLE
         @test isa(sp, Makie.Surface)
         @test cb === nothing
         @test_throws BoundsError globe_plot(FTLE, spectral_grid; time_index = 0)
+        @test_throws ArgumentError globe_plot(FTLE, spectral_grid; time_index = 2, time_hour = 2.0, time_hours = result.time_hours)
+        @test_throws ArgumentError globe_plot(FTLE, spectral_grid; time_hour = 2.0)
+        @test_throws DimensionMismatch globe_plot(FTLE, spectral_grid; time_hour = 2.0, time_hours = [0.0, 1.0])
+
+        fig, ax, sp, cb = globe_plot(
+            FTLE,
+            spectral_grid;
+            time_hours = result.time_hours,
+            time_hour = 2.6,
+            lon = collect(-180:45:180),
+            lat = collect(-90:45:90),
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoMakie.GlobeAxis)
+        @test isa(sp, Makie.Surface)
+        @test isa(cb, Colorbar)
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE, :, 4)))
 
         fig, ax, sp, cb = globe_plot(
             FTLE[:, end],
@@ -124,5 +144,21 @@ using SpeedyWeatherFTLE
         @test isa(ax, GeoMakie.GlobeAxis)
         @test isa(sp, Makie.Surface)
         @test cb === nothing
+
+        fig, ax, sp, cb = globe_plot(
+            result;
+            time_hour = 2.6,
+            lon = collect(-180:45:180),
+            lat = collect(-90:45:90),
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoMakie.GlobeAxis)
+        @test isa(sp, Makie.Surface)
+        @test isa(cb, Colorbar)
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE, :, 4)))
+        @test_throws ArgumentError globe_plot(result; time_index = 2, time_hour = 2.0)
     end
 end

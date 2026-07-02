@@ -225,20 +225,6 @@ function slider_plot(
     return slider_plot(result.time_hours, result.ftle, result.spectral_grid; kwargs...)
 end
 
-function _nearest_time_index(times, time_hour)
-    isempty(times) && throw(ArgumentError("slider handle has no times"))
-    nearest_index = firstindex(times)
-    nearest_distance = abs(times[nearest_index] - time_hour)
-    for index in Iterators.drop(eachindex(times), 1)
-        distance = abs(times[index] - time_hour)
-        if distance < nearest_distance
-            nearest_index = index
-            nearest_distance = distance
-        end
-    end
-    return nearest_index
-end
-
 """
     set_slider_time!(handle::SliderPlotHandle, time_hour)
 

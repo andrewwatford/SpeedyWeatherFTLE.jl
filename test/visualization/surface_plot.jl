@@ -81,6 +81,9 @@ using SpeedyWeatherFTLE
         @test cb.label[] == label
         @test ax.title[] == title
         @test_throws BoundsError surface_plot(FTLE, spectral_grid; time_index = 0)
+        @test_throws ArgumentError surface_plot(FTLE, spectral_grid; time_index = 2, time_hour = 2.0, time_hours = result.time_hours)
+        @test_throws ArgumentError surface_plot(FTLE, spectral_grid; time_hour = 2.0)
+        @test_throws DimensionMismatch surface_plot(FTLE, spectral_grid; time_hour = 2.0, time_hours = [0.0, 1.0])
 
         shared_colorrange = (0.0, 1.0)
         fig, ax, sp, cb = surface_plot(
@@ -96,6 +99,21 @@ using SpeedyWeatherFTLE
 
         @test sp.colorrange[] == collect(shared_colorrange)
         @test ax.xlabel[] == "longitude"
+
+        fig, ax, sp, cb = surface_plot(
+            FTLE,
+            spectral_grid;
+            time_hours = result.time_hours,
+            time_hour = 2.6,
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE, :, 4)))
 
         fig, ax, sp, cb = surface_plot(
             FTLE[:, end],
@@ -151,6 +169,21 @@ using SpeedyWeatherFTLE
         @test isa(sp, GeoMakie.Surface)
         @test isa(cb, Colorbar)
         @test cb.label[] == "FTLE [1/h]"
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE, :, 3)))
+
+        fig, ax, sp, cb = surface_plot(
+            result;
+            time_hour = 2.6,
+            colorbar = true,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE, :, 4)))
+        @test_throws ArgumentError surface_plot(result; time_index = 2, time_hour = 2.0)
 
         fig, ax, sp, cb = surface_plot(
             result;

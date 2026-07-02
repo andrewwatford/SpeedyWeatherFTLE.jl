@@ -79,6 +79,15 @@ If you have an [`FTLEResult`](@ref), this is enough:
 fig, ax, sp, cb = surface_plot(result)
 ```
 
+For saved multi-horizon FTLE output, `time_index` selects a column directly.
+When you have the saved integration times, `time_hour` selects the nearest
+available horizon:
+
+```julia
+surface_plot(result; time_hour = 24)
+surface_plot(FTLE_grid_time, spectral_grid; time_hours = time_hours, time_hour = 24)
+```
+
 For one-off FTLE plots, the default finite color limits are usually enough.
 When comparing several FTLE fields, pass a shared [`ftle_colorrange`](@ref) so
 colors mean the same thing in each plot:
@@ -221,6 +230,7 @@ The same overloads as [`surface_plot`](@ref) are available:
 ```julia
 globe_plot(result)
 globe_plot(FTLE_grid_time, spectral_grid; time_index = 3)
+globe_plot(result; time_hour = 24)
 globe_plot(final_ftle(result), result.spectral_grid)
 ```
 

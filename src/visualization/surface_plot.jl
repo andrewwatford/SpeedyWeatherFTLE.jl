@@ -2,7 +2,8 @@
     surface_plot(field::RingGrids.Field; kwargs...)
     surface_plot(FTLE_grid::AbstractVector, grid_or_spectral_grid; kwargs...)
     surface_plot(FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid; time_index = size(FTLE_grid_time, 2), kwargs...)
-    surface_plot(result::FTLEResult; time_index = size(result.ftle, 2), kwargs...)
+    surface_plot(FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid; time_hours, time_hour = nothing, kwargs...)
+    surface_plot(result::FTLEResult; time_index = size(result.ftle, 2), time_hour = nothing, kwargs...)
 
 Plot one FTLE field on a geographic Makie axis.
 
@@ -32,6 +33,12 @@ autoscaling.
 - `surface_kwargs = (;)`: extra keyword arguments forwarded to `surface!`.
 - `colorbar_kwargs = (;)`: extra keyword arguments forwarded to `Colorbar`.
 - `coastline_kwargs = (;)`: extra keyword arguments forwarded to `lines!`.
+- `time_index = size(FTLE_grid_time, 2)`: selected FTLE column for matrix or
+  result inputs.
+- `time_hours = nothing`: saved integration horizons for matrix inputs when
+  selecting with `time_hour`.
+- `time_hour = nothing`: for matrix inputs with `time_hours`, or for
+  `FTLEResult` inputs, select the saved integration horizon nearest this hour.
 
 # Returns
 
@@ -134,7 +141,9 @@ end
 function surface_plot(
     FTLE_grid_time::AbstractMatrix,
     grid_or_spectral_grid;
-    time_index::Integer=size(FTLE_grid_time, 2),
+    time_index::Union{Nothing,Integer}=nothing,
+    time_hour::Union{Nothing,Real}=nothing,
+    time_hours=nothing,
     kwargs...
     )
     """
@@ -144,10 +153,9 @@ function surface_plot(
     `grid_or_spectral_grid` may be either the `SpectralGrid` returned by
     `get_FTLE` or its spatial grid.
     """
-    1 <= time_index <= size(FTLE_grid_time, 2) ||
-        throw(BoundsError(FTLE_grid_time, (:, time_index)))
+    resolved_index = _resolve_time_index(FTLE_grid_time; time_index, time_hour, time_hours)
 
-    ftle_values = view(FTLE_grid_time, :, time_index)
+    ftle_values = view(FTLE_grid_time, :, resolved_index)
     field = ftle_field(ftle_values, grid_or_spectral_grid)
     plot_kwargs = (; kwargs...)
     if !(:label in keys(plot_kwargs))
@@ -161,13 +169,14 @@ end
 
 function surface_plot(
     result::FTLEResult;
-    time_index::Integer=size(result.ftle, 2),
+    time_index::Union{Nothing,Integer}=nothing,
+    time_hour::Union{Nothing,Real}=nothing,
     kwargs...
     )
     """
     Create a surface plot from an `FTLEResult`.
     """
-    return surface_plot(result.ftle, result.spectral_grid; time_index, kwargs...)
+    return surface_plot(result.ftle, result.spectral_grid; time_index, time_hour, time_hours=result.time_hours, kwargs...)
 end
 
 export surface_plot
