@@ -40,12 +40,17 @@ Build it locally from the repository root with:
 julia --project=docs docs/make.jl
 ```
 
+Then open `docs/build/index.html` in your browser.
+
 ## Examples
 
-See `examples/speedyweather_ftle_snapshots.ipynb` for a local notebook that runs
-and caches a dynamic SpeedyWeather flow simulation, plots the
-initial and evolved velocity components, and then compares initial and evolved
-FTLE fields for a user-selected integration horizon.
+The richest examples live in the documentation:
+
+- `docs/src/simulation.md` shows SpeedyWeather particle-tracking workflows,
+  including a summer-like versus winter-like meandering jet comparison and an
+  evolving-flow versus frozen-flow recipe.
+- `docs/src/plotting.md` shows static maps, integration-horizon sliders,
+  generated GIFs, and globe plots.
 
 ## Basic usage
 
