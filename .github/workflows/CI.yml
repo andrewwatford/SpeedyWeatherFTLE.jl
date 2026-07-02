@@ -67,9 +67,16 @@ jobs:
             Pkg.activate(project)
 
             repo_url = string(ENV["GITHUB_SERVER_URL"], "/", ENV["GITHUB_REPOSITORY"], ".git")
+            speedyweather_url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"
+            Pkg.add([
+                PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "LowerTriangularArrays"),
+                PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "RingGrids"),
+                PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyTransforms"),
+                PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeather"),
+                PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeatherInternals"),
+            ])
             Pkg.add(PackageSpec(url = repo_url, rev = ENV["GITHUB_SHA"]))
             Pkg.add([
-                PackageSpec(name = "RingGrids"),
                 PackageSpec(name = "CairoMakie"),
                 PackageSpec(name = "GLMakie"),
             ])

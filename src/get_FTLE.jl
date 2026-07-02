@@ -1,5 +1,29 @@
 const _MAX_LOCAL_STENCIL_DEGREES = 20.0
 
+const _SPEEDYWEATHER_SOURCE_INSTALL_MESSAGE =
+    "SpeedyWeatherFTLE currently requires the mk/lyapunov2 branch of the " *
+    "SpeedyWeather monorepo. Registered SpeedyWeather releases do not yet " *
+    "provide the ParticleAdvection2D keyword API required by get_FTLE. " *
+    "Install the SpeedyWeather subpackages from " *
+    "https://github.com/SpeedyWeather/SpeedyWeather.jl at rev mk/lyapunov2 " *
+    "before adding SpeedyWeatherFTLE."
+
+function _ftle_particle_advection_2d(spectral_grid; nparticles, backwards, every_n_time_steps)
+    try
+        return ParticleAdvection2D(
+            spectral_grid;
+            nparticles,
+            backwards,
+            every_n_time_steps,
+        )
+    catch err
+        if err isa MethodError
+            throw(ArgumentError(_SPEEDYWEATHER_SOURCE_INSTALL_MESSAGE))
+        end
+        rethrow()
+    end
+end
+
 function _check_initial_FTLE_positions(londs, latds, dist_km)
     Npoints = length(londs)
     length(latds) == Npoints || throw(DimensionMismatch("londs and latds must have the same length"))
@@ -261,7 +285,7 @@ function get_FTLE(
     spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, Grid=spatial_grid_type)
 
     # Set up particle advection scheme, model, and simulation
-    particle_advection = ParticleAdvection2D(
+    particle_advection = _ftle_particle_advection_2d(
         spectral_grid;
         nparticles=n_particles,
         backwards=backwards,

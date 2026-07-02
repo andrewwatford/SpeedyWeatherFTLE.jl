@@ -13,12 +13,25 @@ Pass zonal and meridional velocity fields on the same `RingGrids` grid and ask
 for an [`FTLEResult`](@ref) when you want named fields plus metadata for
 plotting and post-processing.
 
-Before running the examples in a fresh Julia project, add SpeedyWeatherFTLE and
-the packages imported directly by the snippets:
+Before running the examples in a fresh Julia project, add the SpeedyWeather
+monorepo packages from the `mk/lyapunov2` branch, then add
+SpeedyWeatherFTLE. This package depends on particle-tracking features from that
+branch that are not yet in registered SpeedyWeather releases.
 
 ```julia
-]add https://github.com/andrewwatford/SpeedyWeatherFTLE.jl
-]add RingGrids CairoMakie
+using Pkg
+
+speedyweather_url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"
+Pkg.add([
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "LowerTriangularArrays"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "RingGrids"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyTransforms"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeather"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeatherInternals"),
+])
+
+Pkg.add(PackageSpec(url = "https://github.com/andrewwatford/SpeedyWeatherFTLE.jl"))
+Pkg.add(["CairoMakie"])
 ```
 
 For interactive GLMakie windows, add GLMakie separately:
@@ -34,10 +47,10 @@ installation and precompilation can take several minutes with plotting
 backends.
 
 The repository development and docs environment uses `[sources]` entries to pin
-SpeedyWeather monorepo packages to the `mk/lyapunov2` branch. A plain
-`Pkg.add(url=...)` install resolves registered SpeedyWeather dependencies
-instead. Use the local clone/develop setup below when you need to reproduce the
-source-pinned development environment exactly.
+SpeedyWeather monorepo packages to the `mk/lyapunov2` branch. Fresh user
+projects must add the same source dependencies explicitly because Julia does
+not apply `[sources]` entries transitively when this package is added as a
+dependency.
 
 ```@example quickstart
 using CairoMakie

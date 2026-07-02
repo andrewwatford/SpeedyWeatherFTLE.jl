@@ -11,13 +11,24 @@ FTLE arrays to RingGrids fields for plotting.
 
 ## Installation
 
-From the Julia package REPL, install the package directly from GitHub. If you
-want to run the examples below, also add the packages you import directly in
-your scripts:
+SpeedyWeatherFTLE currently depends on particle-tracking features from the
+`mk/lyapunov2` branch of the SpeedyWeather monorepo. Install those source
+dependencies first, then install SpeedyWeatherFTLE:
 
 ```julia
-]add https://github.com/andrewwatford/SpeedyWeatherFTLE.jl
-]add RingGrids CairoMakie
+using Pkg
+
+speedyweather_url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"
+Pkg.add([
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "LowerTriangularArrays"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "RingGrids"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyTransforms"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeather"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeatherInternals"),
+])
+
+Pkg.add(PackageSpec(url = "https://github.com/andrewwatford/SpeedyWeatherFTLE.jl"))
+Pkg.add(["CairoMakie"])
 ```
 
 Then load the packages in Julia with:
@@ -30,7 +41,10 @@ using SpeedyWeatherFTLE
 
 Julia resolves imports from the active project. Even when a package is an
 indirect dependency of SpeedyWeatherFTLE, any package you `using` directly in a
-script or notebook should be a direct dependency of that active project.
+script or notebook should be a direct dependency of that active project. A
+plain `Pkg.add(url="https://github.com/andrewwatford/SpeedyWeatherFTLE.jl")`
+without the `mk/lyapunov2` SpeedyWeather source dependencies is not a supported
+install path.
 
 For local interactive Makie windows and rotatable globes, add GLMakie
 separately:
@@ -69,9 +83,9 @@ python3 -m http.server --directory docs/build 8000
 
 The checked-out docs and development environments use this repository's
 `[sources]` entries for the SpeedyWeather monorepo packages on the
-`mk/lyapunov2` branch. A plain `Pkg.add(url=...)` user install resolves normal
-registered dependencies instead; use the local clone/develop setup when you
-need to reproduce the source-pinned development environment exactly.
+`mk/lyapunov2` branch. Fresh user installs must add those source dependencies
+explicitly, as shown above, because Julia does not apply `[sources]` entries
+transitively when this package is added as a dependency.
 
 ## Examples
 

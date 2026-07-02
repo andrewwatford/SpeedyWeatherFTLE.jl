@@ -34,11 +34,12 @@ validation behavior.
 
 The repository docs and development environment use the `[sources]` entries in
 the root project to pin SpeedyWeather monorepo packages to the `mk/lyapunov2`
-branch. A plain user install with `Pkg.add(url=...)` does not apply those source
-overrides; it resolves registered SpeedyWeather dependencies. That user install
-path is covered by a fresh-install CI smoke that installs this package by Git
-URL and revision. Use the local clone/develop setup when you need to reproduce
-the source-pinned `mk/lyapunov2` development and docs environment exactly.
+branch. SpeedyWeatherFTLE depends on particle-tracking features from that branch
+that are not yet in registered SpeedyWeather releases. Fresh user projects must
+add the `mk/lyapunov2` SpeedyWeather subpackages explicitly before adding
+SpeedyWeatherFTLE, as shown on the home page. A plain
+`Pkg.add(url="https://github.com/andrewwatford/SpeedyWeatherFTLE.jl")` that
+resolves registered SpeedyWeather dependencies is not a supported install path.
 
 ## Positive-Time FTLE
 
