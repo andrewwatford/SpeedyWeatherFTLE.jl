@@ -14,6 +14,12 @@ GLMakie is available for local interactive windows. The documentation build
 activates CairoMakie explicitly, which keeps GitHub Actions headless and still
 renders static figures and GIFs.
 
+Coastlines are visual context in these plotting helpers. They do not mask FTLE
+values, stop particles at land, or change the calculation. In the synthetic
+examples below they help orient the global field; set `coastlines = false` when
+the geographic overlay would imply land physics that your velocity field does
+not contain.
+
 ## Plot One Output Time
 
 [`surface_plot`](@ref) accepts an [`FTLEResult`](@ref), an FTLE vector plus a

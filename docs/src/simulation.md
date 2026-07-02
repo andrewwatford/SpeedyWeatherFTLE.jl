@@ -78,6 +78,8 @@ looks right.
 First define and inspect the two prescribed flow states. These lightweight
 plots are rendered in the docs so you can check that the summer-like and
 winter-like jets are meaningfully different before launching particle tracking.
+The jets are idealized global flows on the sphere: coastlines in the preview
+plots are map-reading aids only, not land barriers or masks.
 
 ```@example meandering_jets
 using CairoMakie

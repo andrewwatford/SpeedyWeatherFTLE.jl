@@ -70,6 +70,18 @@ If you want to compare materially different flow states, run separate FTLE
 experiments, for example one initialized from a summer-like jet and one from a
 winter-like jet, or one with `dynamics = false` and one with `dynamics = true`.
 
+## Coastlines and Land
+
+FTLE is computed from the supplied velocity field and particle trajectories.
+The plotting helpers can draw GeoMakie coastlines, but those coastlines are only
+visual overlays. They do not define land, mask output values, or prevent
+particles from crossing a shoreline.
+
+If land matters for your experiment, encode it in the model setup, velocity
+fields, or post-processing mask. For idealized global examples, coastlines are
+best read as orientation marks; for abstract test flows, turn them off with
+`coastlines = false`.
+
 ## Exact In-Memory Example
 
 For a linear map `A = [2 0; 0 0.5]` over four hours, the largest singular value
