@@ -35,15 +35,21 @@ using SpeedyWeatherFTLE
         FTLE_with_nan[1] = NaN
         field = ftle_field(FTLE, spectral_grid)
         final_field = ftle_field(FTLE[:, end], spectral_grid)
-        result = FTLEResult(
-            FTLE,
-            spectral_grid,
-            collect(0.0:3.0);
+        result_kwargs = (;
             dist_km = 10,
             backwards = false,
             dynamics = false,
             rint_hours = 1,
         )
+        result = FTLEResult(
+            FTLE,
+            spectral_grid,
+            collect(0.0:3.0);
+            result_kwargs...,
+        )
+        @test_throws DimensionMismatch FTLEResult(FTLE[:, end], spectral_grid, [3.0]; result_kwargs...)
+        @test_throws DimensionMismatch FTLEResult(FTLE[1:end - 1, :], spectral_grid, collect(0.0:3.0); result_kwargs...)
+        @test_throws DimensionMismatch FTLEResult(FTLE, spectral_grid, [0.0, 1.0]; result_kwargs...)
 
         @test isa(field, Field)
         @test size(field) == size(FTLE)

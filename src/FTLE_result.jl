@@ -14,7 +14,8 @@ or reusing saved particle files. `FTLEResult` supports array-like `size`,
 
 - `ftle`: matrix with dimensions `(grid point, selected time)`.
 - `spectral_grid`: SpeedyWeather spectral grid used by the run.
-- `time_hours`: selected tracker output times, measured in hours since release.
+- `time_hours`: selected tracker output times, measured in hours since release,
+  with one entry per `ftle` column.
 - `particle_file_path`: path to the saved particle file, or `nothing`.
 - `dist_km`: initial particle perturbation distance in kilometres.
 - `backwards`: whether the simulation ran backward in time.
@@ -45,6 +46,14 @@ function FTLEResult(
     dynamics,
     rint_hours,
 )
+    ndims(ftle) == 2 ||
+        throw(DimensionMismatch("ftle must be a matrix with dimensions (grid point, selected time)"))
+    npoints = _grid_npoints(spectral_grid)
+    size(ftle, 1) == npoints ||
+        throw(DimensionMismatch("ftle has $(size(ftle, 1)) rows, but the spectral grid has $npoints grid points"))
+    length(time_hours) == size(ftle, 2) ||
+        throw(DimensionMismatch("time_hours has length $(length(time_hours)), but ftle has $(size(ftle, 2)) time columns"))
+
     return FTLEResult(
         ftle,
         spectral_grid,
@@ -56,6 +65,42 @@ function FTLEResult(
         Bool(dynamics),
         Float64(rint_hours),
     )
+end
+
+function _nearest_time_index(times, time_hour::Real)
+    isempty(times) && throw(ArgumentError("no time_hours are available"))
+    nearest_index = firstindex(times)
+    nearest_distance = abs(times[nearest_index] - time_hour)
+    for index in Iterators.drop(eachindex(times), 1)
+        distance = abs(times[index] - time_hour)
+        if distance < nearest_distance
+            nearest_index = index
+            nearest_distance = distance
+        end
+    end
+    return nearest_index
+end
+
+function _resolve_time_index(FTLE_grid_time::AbstractMatrix; time_index, time_hour, time_hours)
+    if time_index !== nothing && time_hour !== nothing
+        throw(ArgumentError("pass either time_index or time_hour, not both"))
+    end
+
+    if time_hour !== nothing
+        time_hours === nothing &&
+            throw(ArgumentError("time_hour requires time_hours for matrix inputs"))
+        length(time_hours) == size(FTLE_grid_time, 2) ||
+            throw(DimensionMismatch("time_hours has length $(length(time_hours)), but FTLE_grid_time has $(size(FTLE_grid_time, 2)) time steps"))
+        resolved_index = _nearest_time_index(time_hours, time_hour)
+    elseif time_index === nothing
+        resolved_index = size(FTLE_grid_time, 2)
+    else
+        resolved_index = time_index
+    end
+
+    1 <= resolved_index <= size(FTLE_grid_time, 2) ||
+        throw(BoundsError(FTLE_grid_time, (:, resolved_index)))
+    return resolved_index
 end
 
 function ftle_field(result::FTLEResult; time_indices=Colon(), time_hour::Union{Nothing,Real}=nothing)

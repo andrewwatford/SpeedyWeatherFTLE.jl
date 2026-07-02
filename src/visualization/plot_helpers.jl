@@ -64,40 +64,4 @@ function _resolve_colorrange(data, colorrange)
     end
 end
 
-function _nearest_time_index(times, time_hour::Real)
-    isempty(times) && throw(ArgumentError("no time_hours are available"))
-    nearest_index = firstindex(times)
-    nearest_distance = abs(times[nearest_index] - time_hour)
-    for index in Iterators.drop(eachindex(times), 1)
-        distance = abs(times[index] - time_hour)
-        if distance < nearest_distance
-            nearest_index = index
-            nearest_distance = distance
-        end
-    end
-    return nearest_index
-end
-
-function _resolve_time_index(FTLE_grid_time::AbstractMatrix; time_index, time_hour, time_hours)
-    if time_index !== nothing && time_hour !== nothing
-        throw(ArgumentError("pass either time_index or time_hour, not both"))
-    end
-
-    if time_hour !== nothing
-        time_hours === nothing &&
-            throw(ArgumentError("time_hour requires time_hours for matrix inputs"))
-        length(time_hours) == size(FTLE_grid_time, 2) ||
-            throw(DimensionMismatch("time_hours has length $(length(time_hours)), but FTLE_grid_time has $(size(FTLE_grid_time, 2)) time steps"))
-        resolved_index = _nearest_time_index(time_hours, time_hour)
-    elseif time_index === nothing
-        resolved_index = size(FTLE_grid_time, 2)
-    else
-        resolved_index = time_index
-    end
-
-    1 <= resolved_index <= size(FTLE_grid_time, 2) ||
-        throw(BoundsError(FTLE_grid_time, (:, resolved_index)))
-    return resolved_index
-end
-
 export ftle_colorrange
