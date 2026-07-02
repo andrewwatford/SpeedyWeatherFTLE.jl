@@ -1,5 +1,8 @@
+using CairoMakie
 using SpeedyWeatherFTLE
 using Test
+
+CairoMakie.activate!()
 
 include("FTLE_computations.jl")
 include("get_FTLE_linear_integration.jl")

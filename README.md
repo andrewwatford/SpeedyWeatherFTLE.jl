@@ -11,17 +11,36 @@ FTLE arrays to RingGrids fields for plotting.
 
 ## Installation
 
-From the Julia package REPL, install the package directly from GitHub:
+From the Julia package REPL, install the package directly from GitHub. If you
+want to run the examples below, also add the packages you import directly in
+your scripts:
 
 ```julia
 ]add https://github.com/andrewwatford/SpeedyWeatherFTLE.jl
+]add RingGrids CairoMakie
 ```
 
-Then load it in Julia with:
+Then load the packages in Julia with:
 
 ```julia
+using CairoMakie
+using RingGrids
 using SpeedyWeatherFTLE
 ```
+
+Julia resolves imports from the active project. Even when a package is an
+indirect dependency of SpeedyWeatherFTLE, any package you `using` directly in a
+script or notebook should be a direct dependency of that active project.
+
+For local interactive Makie windows and rotatable globes, add GLMakie
+separately:
+
+```julia
+]add GLMakie
+```
+
+The first install and precompile can take several minutes, especially when
+plotting backends are included.
 
 ## Documentation
 
@@ -37,10 +56,22 @@ The Documenter site in `docs/src` is the best onboarding path. It includes:
 Build it locally from the repository root with:
 
 ```bash
+julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
 julia --project=docs docs/make.jl
 ```
 
-Then open `docs/build/index.html` in your browser.
+Then open `docs/build/index.html` in your browser. If you prefer to browse with
+a local web server, run:
+
+```bash
+python3 -m http.server --directory docs/build 8000
+```
+
+The checked-out docs and development environments use this repository's
+`[sources]` entries for the SpeedyWeather monorepo packages on the
+`mk/lyapunov2` branch. A plain `Pkg.add(url=...)` user install resolves normal
+registered dependencies instead; use the local clone/develop setup when you
+need to reproduce the source-pinned development environment exactly.
 
 ## Examples
 
@@ -56,17 +87,22 @@ The richest examples live in the documentation:
 
 ```julia
 using CairoMakie
+using Random
 using RingGrids
 using SpeedyWeatherFTLE
 
-grid = FullGaussianGrid(20)
-u = 100 * rand(grid)
-v = 100 * rand(grid)
+Random.seed!(42)
+
+grid = FullGaussianGrid(8)
+u = 25 * rand(grid)
+v = 25 * rand(grid)
 
 result = positive_FTLE(
     u,
     v;
-    dynamics = true,
+    simulation_days = 1,
+    dynamics = false,
+    rint_hours = 6,
     return_result = true,
     time_indices = :nonzero,
 )
@@ -78,9 +114,12 @@ This example uses random abstract velocity fields, so the plot disables
 coastlines. For geophysical fields, leave coastlines on or style them as visual
 context.
 
-Use `negative_FTLE` for backward-time FTLE. Pass `time_indices = :last` or
-`:final` when only the final tracker sample is needed, or `:nonzero` to skip
-the initial `0 h` sample where FTLE is undefined.
+Use `negative_FTLE` for backward-time FTLE in frozen prescribed flows. Pass
+`time_indices = :last` or `:final` when only the final tracker sample is
+needed, or `:nonzero` to skip the initial `0 h` sample where FTLE is undefined.
+The high-level prescribed-field API does not yet provide a true unsteady
+negative-time FTLE workflow that replays the reversed velocity history of an
+evolving SpeedyWeather simulation.
 
 Saved particle files can be post-processed without rerunning the simulation:
 

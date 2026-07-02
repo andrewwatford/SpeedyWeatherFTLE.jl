@@ -13,6 +13,32 @@ Pass zonal and meridional velocity fields on the same `RingGrids` grid and ask
 for an [`FTLEResult`](@ref) when you want named fields plus metadata for
 plotting and post-processing.
 
+Before running the examples in a fresh Julia project, add SpeedyWeatherFTLE and
+the packages imported directly by the snippets:
+
+```julia
+]add https://github.com/andrewwatford/SpeedyWeatherFTLE.jl
+]add RingGrids CairoMakie
+```
+
+For interactive GLMakie windows, add GLMakie separately:
+
+```julia
+]add GLMakie
+```
+
+Julia resolves `using PackageName` from the active project. If a script imports
+`RingGrids`, `CairoMakie`, or `GLMakie` directly, add that package directly to
+the active project even when it is also an indirect dependency. First
+installation and precompilation can take several minutes with plotting
+backends.
+
+The repository development and docs environment uses `[sources]` entries to pin
+SpeedyWeather monorepo packages to the `mk/lyapunov2` branch. A plain
+`Pkg.add(url=...)` install resolves registered SpeedyWeather dependencies
+instead. Use the local clone/develop setup below when you need to reproduce the
+source-pinned development environment exactly.
+
 ```@example quickstart
 using CairoMakie
 using Random
@@ -95,6 +121,15 @@ fig
 
 From the repository root, instantiate the project once:
 
+```bash
+julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+```
+
+This develops the local checkout into the docs environment and instantiates the
+docs dependencies.
+
+For the package development environment itself:
+
 ```julia
 ] activate .
 ] instantiate
@@ -111,3 +146,6 @@ Build these docs locally with:
 ```bash
 julia --project=docs docs/make.jl
 ```
+
+Local builds use non-pretty URLs so `docs/build/index.html` can be opened
+directly from disk. Hosted CI builds use pretty URLs.

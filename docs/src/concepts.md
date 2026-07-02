@@ -6,16 +6,21 @@ An FTLE measures the largest finite-time stretching rate near each initial
 position. SpeedyWeatherFTLE estimates that stretching by releasing four
 particles around every grid point: one east, one west, one north, and one south.
 Those trajectories define a centred finite-difference approximation to the
-displacement gradient. The largest eigenvalue of the resulting right
-Cauchy-Green tensor gives the FTLE.
+flow-map Jacobian, also called the deformation gradient. If `F` is that
+deformation-gradient approximation and `C = F'F` is the right Cauchy-Green
+tensor, the FTLE over an integration duration `T` is
+`log(sqrt(lambda_max(C))) / abs(T)`, equivalently
+`log(lambda_max(C)) / (2 * abs(T))`. Signed durations are accepted by the
+low-level post-processing functions and are interpreted by elapsed-duration
+magnitude.
 
 FTLE values returned by this package are in inverse hours because the particle
 output times are converted to hours before post-processing.
 
 Use [`stretching_factor`](@ref) to convert FTLE values back to the finite-time
-stretching factor `exp(FTLE * T)`. This dimensionless value is often easier to
-interpret: `2` means nearby particles separated by a factor of two over the
-selected integration time.
+stretching factor `exp(FTLE * abs(T))`. This dimensionless value is often
+easier to interpret: `2` means nearby particles separated by a factor of two
+over the selected integration time.
 
 ## Positive and Negative Direction
 
@@ -35,6 +40,14 @@ directly:
 result = get_FTLE(u, v; backwards = true, return_result = true)
 ```
 
+For frozen prescribed flows, backward-time FTLE is computed by advecting the
+FTLE release stencil backward through the same static velocity field. For a
+truly unsteady flow, negative-time FTLE requires the inverse flow map through a
+reversed velocity history. The high-level prescribed-field API does not yet
+store and replay that evolving history, so examples use `dynamics = false` for
+negative-time calculations. The high-level API rejects
+`backwards = true, dynamics = true` with an `ArgumentError`.
+
 ## Array Shapes
 
 The main numerical output is an `FTLE_grid_time` matrix with shape
@@ -44,6 +57,27 @@ The main numerical output is an `FTLE_grid_time` matrix with shape
 For lower-level post-processing, particle longitude and latitude arrays should
 have shape `(particle, time)`. There must be four particles per FTLE grid point,
 ordered east, west, north, south.
+
+## Spherical Finite Differences
+
+The current implementation uses local tangent-plane finite differencing on the
+sphere. The east/west stencil converts the requested `dist_km` to a longitude
+offset using the local latitude, and post-processing reconstructs a local
+deformation-gradient approximation from wrapped longitude and latitude
+differences.
+
+This is appropriate for small local perturbations, not for nonlocal particle
+pairs. The default `dist_km = 10` is intended as a local finite-difference
+separation. Values around `5` to `25` km are a reasonable starting range for
+typical global examples; `25` to `50` km can be useful for coarse exploratory
+runs, but the separation should remain much smaller than the grid spacing,
+flow-feature scale, and distance to a pole crossing.
+
+Avoid stencils whose north/south particles would cross a pole, and be cautious
+near very high latitudes where the east/west longitude offset scales like
+`1 / cos(latitude)`. The longitude wrapping in the finite difference handles
+small antimeridian crossings, but it does not make large or aliased particle
+separations local again.
 
 ## Selecting Output Times
 
@@ -57,6 +91,11 @@ Common selectors are:
 - `:last` or `:final`: compute only the final tracker sample.
 - `:` or `:all`: compute all tracker samples.
 - an integer, integer vector/range, or boolean mask: compute explicit samples.
+
+Low-level particle post-processing treats selected `time_hours` as elapsed
+durations. Signed finite durations are accepted and use `abs(time_hour)`,
+zero-duration columns produce `NaN`, and non-finite times throw
+`ArgumentError`.
 
 ## FTLE Integration Horizons
 
@@ -126,7 +165,7 @@ ftle, selected_times = FTLE_from_particles(
     time_indices = :nonzero,
 )
 
-round(ftle[1, 1], digits = 6), round(log(2) / T, digits = 6)
+round(ftle[1, 1], digits = 6), round(log(2) / abs(T), digits = 6)
 ```
 
 The initial time column is skipped here because FTLE is undefined at `t = 0`.

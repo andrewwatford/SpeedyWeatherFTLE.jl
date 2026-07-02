@@ -8,7 +8,9 @@ FTLE array and [`FTLEResult`](@ref) inputs label their colorbars as
 `FTLE [1/h]` by default. Static FTLE plots also choose finite-value color limits
 so `NaN` samples, such as the undefined zero-duration column, do not dominate
 the color scale. Generic `RingGrids.Field` inputs stay unlabeled unless you
-pass `label` or `colorbar_label` yourself.
+pass an explicit colorbar label. `surface_plot` and `globe_plot` use the
+Makie-style keyword `label`. `slider_plot` accepts `colorbar_label` and also
+accepts `label` as an alias; pass only one of those two keywords.
 
 GLMakie is available for local interactive windows. The documentation build
 activates CairoMakie explicitly, which keeps GitHub Actions headless and still
@@ -144,8 +146,10 @@ that column. Slider plots show the active integration horizon above the slider
 by default; set `time_label = false` to hide it, or pass `time_label_format` to
 customize it. FTLE inputs use integration-time wording for the slider controls;
 generic time-dependent fields keep the usual `Time [h]` default.
-As with static maps, pass `axis_kwargs`, `surface_kwargs`, `colorbar_kwargs`,
-or `coastline_kwargs` when you need lower-level Makie styling.
+Use `colorbar_label` or its `label` alias to customize the slider colorbar; if
+both are passed, `slider_plot` throws an `ArgumentError`. As with static maps,
+pass `axis_kwargs`, `surface_kwargs`, `colorbar_kwargs`, or
+`coastline_kwargs` when you need lower-level Makie styling.
 
 When you want to keep hold of the interactive controls, request a handle:
 
@@ -193,6 +197,10 @@ isfile(animation_path), filesize(animation_path) > 0
 For local interactive use, activate GLMakie before making the plot:
 
 ```julia
+]add GLMakie
+```
+
+```julia
 using GLMakie
 
 fig, ax, sp, cb = slider_plot(
@@ -235,6 +243,10 @@ globe_plot(final_ftle(result), result.spectral_grid)
 ```
 
 For an interactive local globe:
+
+```julia
+]add GLMakie
+```
 
 ```julia
 using GLMakie

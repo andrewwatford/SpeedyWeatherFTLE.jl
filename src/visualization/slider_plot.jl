@@ -23,6 +23,25 @@ end
 
 _plot_tuple(handle::SliderPlotHandle) = (handle.fig, handle.ax, handle.sp, handle.cb)
 
+function _drop_keyword(kwargs::NamedTuple, key::Symbol)
+    names = Tuple(name for name in keys(kwargs) if name != key)
+    return NamedTuple{names}(map(name -> getproperty(kwargs, name), names))
+end
+
+function _normalize_slider_colorbar_label_kwargs(kwargs)
+    plot_kwargs = (; kwargs...)
+    has_label = :label in keys(plot_kwargs)
+    has_colorbar_label = :colorbar_label in keys(plot_kwargs)
+    if has_label && has_colorbar_label
+        throw(ArgumentError("pass either label or colorbar_label to slider_plot, not both"))
+    elseif has_label
+        colorbar_label = plot_kwargs.label
+        plot_kwargs = _drop_keyword(plot_kwargs, :label)
+        plot_kwargs = merge((; colorbar_label), plot_kwargs)
+    end
+    return plot_kwargs
+end
+
 function _slider_plot_handle(
     times::AbstractVector{<:Real},
     field_ts::Field;
@@ -130,8 +149,8 @@ time series of independent instantaneous FTLE fields. Interpreting slider
 frames as an evolving-flow diagnostic requires explicit release times or
 windows for each frame, which is a separate calculation. FTLE array and result
 inputs label the colorbar as `FTLE [1/h]` and the slider as
-`Integration time [h]` by default; pass `colorbar_label = nothing` to suppress
-the colorbar label.
+`Integration time [h]` by default; pass `colorbar_label = nothing` or
+`label = nothing` to suppress the colorbar label.
 
 # Keyword Arguments
 
@@ -143,6 +162,7 @@ the colorbar label.
 - `colorbar = true`: add a colorbar.
 - `colorrange = :auto`: color limits. Use `:auto` or `nothing` for finite-value extrema, `:symmetric` for symmetric limits, or pass explicit limits.
 - `colorbar_label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
+- `label = nothing`: alias for `colorbar_label`; pass only one of these two keywords.
 - `coastlines = true`: draw GeoMakie coastlines as a visual overlay.
 - `coastline_color = :black`: coastline color.
 - `coastline_linewidth = 1`: coastline line width.
@@ -171,7 +191,8 @@ function slider_plot(
     return_handle::Bool=false,
     kwargs...
     )
-    handle = _slider_plot_handle(times, field_ts; kwargs...)
+    plot_kwargs = _normalize_slider_colorbar_label_kwargs(kwargs)
+    handle = _slider_plot_handle(times, field_ts; plot_kwargs...)
     return return_handle ? handle : _plot_tuple(handle)
 end
 
@@ -187,14 +208,19 @@ function slider_plot(
         throw(DimensionMismatch("times has length $(length(times)), but FTLE_grid_time has $(size(FTLE_grid_time, 2)) time steps"))
 
     if start_index === nothing
-        start_index = something(findfirst(t -> isfinite(t) && t > 0, times), firstindex(times))
+        start_index = findfirst(t -> isfinite(t) && t > 0, times)
+        start_index === nothing &&
+            throw(ArgumentError(
+                "slider_plot skips zero-duration FTLE data by default, but no finite positive time is available; " *
+                "pass start_index=1 to include zero-duration or nonpositive data.",
+            ))
     end
     firstindex(times) <= start_index <= lastindex(times) ||
         throw(BoundsError(times, start_index))
 
     time_indices = start_index:lastindex(times)
     field_ts = ftle_field(view(FTLE_grid_time, :, time_indices), grid_or_spectral_grid)
-    plot_kwargs = (; kwargs...)
+    plot_kwargs = _normalize_slider_colorbar_label_kwargs(kwargs)
     if !(:colorbar_label in keys(plot_kwargs))
         plot_kwargs = merge((; colorbar_label=_FTLE_COLORBAR_LABEL), plot_kwargs)
     end
@@ -212,7 +238,8 @@ function slider_plot(
     result::FTLEResult;
     kwargs...
     )
-    return slider_plot(result.time_hours, result.ftle, result.spectral_grid; kwargs...)
+    spectral_grid = _require_spectral_grid(result, "slider_plot")
+    return slider_plot(result.time_hours, result.ftle, spectral_grid; kwargs...)
 end
 
 """
@@ -300,7 +327,8 @@ function animate_slider_plot(
     result::FTLEResult;
     kwargs...
     )
-    return animate_slider_plot(path, result.time_hours, result.ftle, result.spectral_grid; kwargs...)
+    spectral_grid = _require_spectral_grid(result, "animate_slider_plot")
+    return animate_slider_plot(path, result.time_hours, result.ftle, spectral_grid; kwargs...)
 end
 
 export slider_plot

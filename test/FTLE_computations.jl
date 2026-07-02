@@ -1,4 +1,5 @@
 using LinearAlgebra
+using NCDatasets
 using RingGrids
 using SpeedyWeather
 using SpeedyWeatherFTLE
@@ -30,8 +31,9 @@ using Test
     end
 
     @testset "positive-time linear systems" begin
-        # If the displacement gradient is the exact forward flow map exp(A*T),
-        # FTLE_over_grid should return log of the largest singular value per unit time.
+        # If the deformation gradient is the exact forward flow map exp(A*T),
+        # FTLE_over_grid should return log of the largest singular value per
+        # unit elapsed time.
         B = exact_flow_maps(linear_systems, duration, 1)
         expected = [exact_ftle(A, duration, 1) for (_, A) in linear_systems]
         actual = fill(NaN, length(linear_systems))
@@ -39,6 +41,7 @@ using Test
         @test SpeedyWeatherFTLE.FTLE_over_grid!(actual, B, duration) === actual
         @test actual ≈ expected rtol=1e-12 atol=1e-12
         @test SpeedyWeatherFTLE.FTLE_over_grid(B, duration) ≈ expected rtol=1e-12 atol=1e-12
+        @test SpeedyWeatherFTLE.FTLE_over_grid(B, -duration) ≈ expected rtol=1e-12 atol=1e-12
     end
 
     @testset "negative-time linear systems" begin
@@ -48,6 +51,7 @@ using Test
         expected = [exact_ftle(A, duration, -1) for (_, A) in linear_systems]
 
         @test SpeedyWeatherFTLE.FTLE_over_grid(B, duration) ≈ expected rtol=1e-12 atol=1e-12
+        @test SpeedyWeatherFTLE.FTLE_over_grid(B, -duration) ≈ expected rtol=1e-12 atol=1e-12
     end
 
     @testset "zero-duration samples are undefined" begin
@@ -59,7 +63,19 @@ using Test
         @test all(isnan, SpeedyWeatherFTLE.FTLE_over_grid(B, 0.0))
     end
 
-    @testset "wrapped longitude displacement gradient" begin
+    @testset "identity and stretch maps" begin
+        B = Array{Float64}(undef, 2, 2, 2)
+        B[:, :, 1] .= [1.0 0.0; 0.0 1.0]
+        B[:, :, 2] .= [2.0 0.0; 0.0 1.0]
+        expected = [0.0, log(2) / duration]
+
+        @test SpeedyWeatherFTLE.FTLE_over_grid(B, duration) ≈ expected rtol=1e-12 atol=1e-12
+        @test SpeedyWeatherFTLE.FTLE_over_grid(B, -duration) ≈ expected rtol=1e-12 atol=1e-12
+        @test_throws ArgumentError SpeedyWeatherFTLE.FTLE_over_grid(B, Inf)
+        @test_throws ArgumentError SpeedyWeatherFTLE.FTLE_over_grid!(fill(NaN, 2), B, NaN)
+    end
+
+    @testset "wrapped longitude flow-map Jacobian" begin
         # East-west particles can straddle 0/360 degrees; their central difference
         # should still reconstruct an identity deformation at release time.
         dist_km = 10.0
@@ -151,10 +167,47 @@ using Test
         @test_throws DimensionMismatch initial_FTLE_particle_positions!(plonds_buffer, platds_buffer[1:end - 1], londs, latds, dist_km)
         @test_throws DimensionMismatch SpeedyWeatherFTLE.perturb_positions_FTLE(particles[1:end - 1], londs, latds, dist_km)
         @test_throws ArgumentError initial_FTLE_particle_positions(londs, latds, 0)
+        @test_throws ArgumentError initial_FTLE_particle_positions(londs, latds, Inf)
+        @test_throws ArgumentError initial_FTLE_particle_positions([0.0], [89.8], dist_km)
+        @test_throws ArgumentError initial_FTLE_particle_positions([0.0], [89.9], 50.0)
+        @test_throws ArgumentError initial_FTLE_particle_positions([0.0], [0.0], 2_500.0)
+
+        antimeridian_plonds, antimeridian_platds = initial_FTLE_particle_positions([359.98], [0.0], dist_km)
+        @test maximum(antimeridian_plonds) > 360
+        @test SpeedyWeatherFTLE.displacement_gradient_matrix_central(
+            antimeridian_plonds,
+            antimeridian_platds,
+            dist_km,
+        )[:, :, 1] ≈ I
+    end
+
+    @testset "particle file initial-position validation" begin
+        dist_km = 10.0
+        grid = FullClenshawGrid(4)
+        npoints = length(first(RingGrids.get_londlatds(grid)))
+        path = tempname() * ".nc"
+
+        try
+            ds = NCDataset(path, "c")
+            try
+                defDim(ds, "particle", 4 * npoints)
+                defDim(ds, "time", 1)
+                lon = defVar(ds, "lon", Float64, ("particle", "time"))
+                lat = defVar(ds, "lat", Float64, ("particle", "time"))
+                lon[:, :] = fill(42.0, 4 * npoints, 1)
+                lat[:, :] = fill(-17.0, 4 * npoints, 1)
+            finally
+                close(ds)
+            end
+
+            @test_throws ArgumentError FTLE_from_particle_file(path, grid, dist_km)
+        finally
+            rm(path; force=true)
+        end
     end
 
     @testset "linear particle trajectories" begin
-        # This exercises the FTLE particle layout and displacement-gradient
+        # This exercises the FTLE particle layout and flow-map Jacobian
         # reconstruction using exact trajectories from u = A*x, without the
         # additional interpolation and time-stepping error from SpeedyWeather.
         center_lond = 180.0
@@ -236,6 +289,7 @@ using Test
             @test all(isnan, stretching[:, 1])
             @test vec(stretching[:, 2:end]) ≈ expected_stretching rtol=1e-4 atol=1e-8
             @test stretching_factor(vec(FTLE_grid_time[:, 2]), returned_times[2]) ≈ [expected_stretching[1]] rtol=1e-4 atol=1e-8
+            @test stretching_factor(vec(FTLE_grid_time[:, 2]), -returned_times[2]) ≈ [expected_stretching[1]] rtol=1e-4 atol=1e-8
             @test isequal(
                 stretching_factor(FTLEResult(
                     FTLE_grid_time,
@@ -250,10 +304,23 @@ using Test
             )
             @test_throws DimensionMismatch stretching_factor(FTLE_grid_time, returned_times[1:2])
             @test_throws DimensionMismatch stretching_factor!(fill(NaN, 1, 1), FTLE_grid_time, returned_times)
+            @test_throws ArgumentError stretching_factor(vec(FTLE_grid_time[:, 2]), Inf)
+            @test_throws ArgumentError stretching_factor(FTLE_grid_time, [0.0, NaN, returned_times[3]])
 
             @test FTLE_from_particles!(FTLE_buffer, B_buffer, plonds_time, platds_time, times, 1, dist_km) === FTLE_buffer
             @test all(isnan, FTLE_buffer[:, 1])
             @test FTLE_buffer[:, 2:end] ≈ FTLE_grid_time[:, 2:end] rtol=1e-4 atol=1e-8
+
+            negative_time_FTLE, negative_returned_times = FTLE_from_particles(
+                plonds_time,
+                platds_time,
+                -times,
+                1,
+                dist_km,
+            )
+            @test negative_returned_times == Float64.(-times)
+            @test all(isnan, negative_time_FTLE[:, 1])
+            @test negative_time_FTLE[:, 2:end] ≈ FTLE_grid_time[:, 2:end] rtol=1e-4 atol=1e-8
 
             subset_FTLE, subset_times = FTLE_from_particles(
                 plonds_time,
@@ -317,6 +384,9 @@ using Test
             @test_throws DimensionMismatch FTLE_from_particles(plonds_time, platds_time[:, 1:1], times, 1, dist_km)
             @test_throws DimensionMismatch FTLE_from_particles(plonds_time, platds_time, times[1:1], 1, dist_km)
             @test_throws ArgumentError FTLE_from_particles(plonds_time, platds_time, times, 1, 0)
+            bad_times = copy(times)
+            bad_times[2] = Inf
+            @test_throws ArgumentError FTLE_from_particles(plonds_time, platds_time, bad_times, 1, dist_km)
             @test_throws DimensionMismatch FTLE_from_particles!(fill(NaN, 2, length(times)), B_buffer, plonds_time, platds_time, times, 1, dist_km)
             @test_throws DimensionMismatch FTLE_from_particles!(FTLE_buffer, fill(NaN, 2, 2, 2), plonds_time, platds_time, times, 1, dist_km)
             @test_throws BoundsError FTLE_from_particles(plonds_time, platds_time, times, 1, dist_km; time_indices = [4])

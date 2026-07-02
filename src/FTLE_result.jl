@@ -72,6 +72,8 @@ end
 
 function _nearest_time_index(times, time_hour::Real)
     isempty(times) && throw(ArgumentError("no time_hours are available"))
+    isfinite(time_hour) ||
+        throw(ArgumentError("time_hour must be finite, got $(time_hour)"))
     nearest_index = firstindex(times)
     nearest_distance = abs(times[nearest_index] - time_hour)
     for index in Iterators.drop(eachindex(times), 1)
@@ -82,6 +84,15 @@ function _nearest_time_index(times, time_hour::Real)
         end
     end
     return nearest_index
+end
+
+function _require_spectral_grid(result::FTLEResult, operation)
+    result.spectral_grid !== nothing && return result.spectral_grid
+    throw(ArgumentError(
+        "$(operation) requires result.spectral_grid, but this FTLEResult has no spectral grid. " *
+        "Diagnostic-only FTLEResult objects cannot be converted to spatial fields or plotted; " *
+        "pass FTLE data with an explicit grid, or use a result created with a spectral grid.",
+    ))
 end
 
 function _resolve_time_index(FTLE_grid_time::AbstractMatrix; time_index, time_hour, time_hours)
@@ -107,6 +118,7 @@ function _resolve_time_index(FTLE_grid_time::AbstractMatrix; time_index, time_ho
 end
 
 function ftle_field(result::FTLEResult; time_indices=Colon(), time_hour::Union{Nothing,Real}=nothing)
+    spectral_grid = _require_spectral_grid(result, "ftle_field")
     if time_hour !== nothing
         isequal(time_indices, Colon()) ||
             throw(ArgumentError("pass either time_indices or time_hour, not both"))
@@ -121,9 +133,9 @@ function ftle_field(result::FTLEResult; time_indices=Colon(), time_hour::Union{N
     end
 
     if length(selected_time_indices) == 1
-        return ftle_field(view(result.ftle, :, first(selected_time_indices)), result.spectral_grid)
+        return ftle_field(view(result.ftle, :, first(selected_time_indices)), spectral_grid)
     else
-        return ftle_field(view(result.ftle, :, selected_time_indices), result.spectral_grid)
+        return ftle_field(view(result.ftle, :, selected_time_indices), spectral_grid)
     end
 end
 
@@ -140,7 +152,10 @@ final_ftle(result::FTLEResult) = result.ftle[:, end]
 Return the final selected FTLE column as a `RingGrids.Field`, ready for
 interpolation or plotting.
 """
-final_ftle_field(result::FTLEResult) = ftle_field(result; time_indices=:last)
+function final_ftle_field(result::FTLEResult)
+    spectral_grid = _require_spectral_grid(result, "final_ftle_field")
+    return ftle_field(final_ftle(result), spectral_grid)
+end
 
 Base.size(result::FTLEResult) = size(result.ftle)
 Base.size(result::FTLEResult, dim::Integer) = size(result.ftle, dim)

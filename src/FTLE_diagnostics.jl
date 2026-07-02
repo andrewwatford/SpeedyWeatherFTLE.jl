@@ -4,11 +4,11 @@
 
 Convert FTLE values to finite-time stretching factors.
 
-For a scalar integration time `T`, this returns `exp.(ftle .* T)`. For an
-`FTLE_grid_time` matrix, `time_hours` must contain one time per column and the
-conversion is applied column by column. Values are dimensionless; `time_hours`
-must use the same time unit used to compute `ftle`, which is hours for
-SpeedyWeatherFTLE particle post-processing.
+For a scalar integration time `T`, this returns `exp.(ftle .* abs(T))`. For an
+`FTLE_grid_time` matrix, `time_hours` must contain one finite time per column
+and the conversion is applied column by column using `abs.(time_hours)`. Values
+are dimensionless; `time_hours` must use the same time unit used to compute
+`ftle`, which is hours for SpeedyWeatherFTLE particle post-processing.
 
 `stretching_factor(result)` uses `result.ftle` and `result.time_hours`.
 """
@@ -26,8 +26,9 @@ function stretching_factor!(stretch, ftle::AbstractVector, time_hour::Real)
     length(stretch) == length(ftle) ||
         throw(DimensionMismatch("stretch must have length $(length(ftle))"))
 
+    duration = _duration_magnitude(time_hour, "time_hour")
     @inbounds for i in eachindex(stretch, ftle)
-        stretch[i] = exp(ftle[i] * time_hour)
+        stretch[i] = exp(ftle[i] * duration)
     end
 
     return stretch
@@ -47,8 +48,9 @@ function stretching_factor!(stretch, ftle::AbstractMatrix, time_hours::AbstractV
     col_axis = axes(ftle, 2)
     @inbounds for (time_index, time_hour) in enumerate(time_hours)
         j = col_axis[time_index]
+        duration = _duration_magnitude(time_hour, "time_hours[$time_index]")
         for i in axes(ftle, 1)
-            stretch[i, j] = exp(ftle[i, j] * time_hour)
+            stretch[i, j] = exp(ftle[i, j] * duration)
         end
     end
 

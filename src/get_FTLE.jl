@@ -1,8 +1,28 @@
+const _MAX_LOCAL_STENCIL_DEGREES = 20.0
+
 function _check_initial_FTLE_positions(londs, latds, dist_km)
     Npoints = length(londs)
     length(latds) == Npoints || throw(DimensionMismatch("londs and latds must have the same length"))
-    dist_km > 0 || throw(ArgumentError("dist_km must be positive"))
-    return Npoints, rad2deg(dist_km * 1000 / Re)
+    _check_dist_km(dist_km)
+
+    del_lat = rad2deg(dist_km * 1000 / Re)
+    del_lat <= _MAX_LOCAL_STENCIL_DEGREES ||
+        throw(ArgumentError("dist_km=$dist_km creates a north/south FTLE stencil offset of $(del_lat)°, which is too large for the local spherical finite-difference approximation"))
+
+    @inbounds for i in eachindex(londs, latds)
+        isfinite(londs[i]) && isfinite(latds[i]) ||
+            throw(ArgumentError("FTLE stencil center positions must be finite"))
+        abs(latds[i]) < 90 ||
+            throw(ArgumentError("FTLE stencil center latitude $(latds[i])° at index $i is at or beyond a pole"))
+        abs(latds[i]) + del_lat < 90 ||
+            throw(ArgumentError("dist_km=$dist_km makes the FTLE stencil cross a pole at latitude $(latds[i])° (index $i)"))
+
+        del_lon = del_lat / abs(cosd(latds[i]))
+        isfinite(del_lon) && del_lon <= _MAX_LOCAL_STENCIL_DEGREES ||
+            throw(ArgumentError("dist_km=$dist_km creates an east/west FTLE stencil offset of $(del_lon)° at latitude $(latds[i])° (index $i), which is too large for the local spherical finite-difference approximation"))
+    end
+
+    return Npoints, del_lat
 end
 
 """
@@ -57,7 +77,10 @@ release stencil around each grid point.
 The returned vectors have length `4length(londs)`. For each grid point, entries
 are ordered east, west, north, south, which is the layout expected by
 [`FTLE_from_particles`](@ref), [`FTLE_from_particle_file`](@ref), and
-SpeedyWeatherFTLE's displacement-gradient reconstruction.
+SpeedyWeatherFTLE's flow-map Jacobian reconstruction. The stencil is a local
+spherical finite-difference approximation; requests with non-finite or
+non-positive `dist_km`, pole-crossing particles, high-latitude singular
+east/west offsets, or clearly nonlocal separations throw `ArgumentError`.
 """
 function initial_FTLE_particle_positions(londs, latds, dist_km)
     Npoints = length(londs)
@@ -117,6 +140,8 @@ particle positions are post-processed with [`FTLE_from_particle_file`](@ref).
 - `dist_km = 10`: particle perturbation distance in kilometres.
 - `backwards = false`: run backward in time for negative-time FTLE.
 - `dynamics = false`: keep the prescribed velocity field static when `false`.
+  `backwards = true` with `dynamics = true` is rejected because evolving-flow
+  negative-time FTLE requires a reversed velocity history.
 - `rint_hours = 3`: particle output cadence in hours.
 - `model_type = BarotropicModel`: SpeedyWeather model type.
 - `particle_advection_every_n_time_steps = 6`: particle advection cadence.
@@ -204,7 +229,10 @@ function get_FTLE(
     if u.grid != v.grid
         error("Velocity fields u and v must be defined on the same grid")
     end
-    dist_km > 0 || throw(ArgumentError("dist_km must be positive"))
+    _check_dist_km(dist_km)
+    if backwards && dynamics
+        throw(ArgumentError("backwards=true with dynamics=true is not supported: evolving-flow negative-time FTLE requires a reversed velocity history; use dynamics=false for frozen-flow backward integration"))
+    end
     particle_advection_every_n_time_steps >= 1 || throw(ArgumentError("particle_advection_every_n_time_steps must be at least 1"))
     rint_hours > 0 || throw(ArgumentError("rint_hours must be positive"))
     particle_tracker_keepbits >= 1 || throw(ArgumentError("particle_tracker_keepbits must be positive"))

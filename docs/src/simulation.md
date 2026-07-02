@@ -1,6 +1,7 @@
 # Running Simulations
 
-The high-level simulation API starts from two velocity fields:
+The high-level simulation API is a prescribed-field convenience wrapper. It
+starts from two velocity fields:
 
 - `u`: zonal velocity on a `RingGrids` grid.
 - `v`: meridional velocity on the same grid.
@@ -12,22 +13,52 @@ post-processes those trajectories into FTLE values.
 Simulation progress and warnings use SpeedyWeather's normal output behavior, so
 longer particle-tracking runs remain transparent in scripts and notebooks.
 
+`get_FTLE(u, v)` creates and runs a new SpeedyWeather model internally. It is
+the most convenient route for prescribed barotropic fields, but it is not yet a
+first-class API for an existing SpeedyWeather `Model` or `Simulation` with
+custom state, callbacks, layers, output handling, or release windows.
+
+For existing SpeedyWeather workflows, use the lower-level pieces directly:
+
+- [`initial_FTLE_particle_positions`](@ref) creates the east, west, north,
+  south release stencil around each FTLE grid point.
+- SpeedyWeather's `ParticleTracker` writes the particle trajectory file during
+  your simulation.
+- [`FTLE_from_particle_file`](@ref) post-processes an FTLE-compatible saved
+  tracker file using the same grid and `dist_km`.
+
+See [Particle Files](particle_files.md) for the file requirements and current
+validation behavior.
+
+## SpeedyWeather Dependency Sources
+
+The repository docs and development environment use the `[sources]` entries in
+the root project to pin SpeedyWeather monorepo packages to the `mk/lyapunov2`
+branch. A plain user install with `Pkg.add(url=...)` does not apply those source
+overrides; it resolves registered SpeedyWeather dependencies. That user install
+path is covered by a fresh-install CI smoke that installs this package by Git
+URL and revision. Use the local clone/develop setup when you need to reproduce
+the source-pinned `mk/lyapunov2` development and docs environment exactly.
+
 ## Positive-Time FTLE
 
 ```julia
+using Random
 using RingGrids
 using SpeedyWeatherFTLE
 
-spatial_grid = FullGaussianGrid(20)
-u = 100 * rand(spatial_grid)
-v = 100 * rand(spatial_grid)
+Random.seed!(42)
+
+spatial_grid = FullGaussianGrid(8)
+u = 25 * rand(spatial_grid)
+v = 25 * rand(spatial_grid)
 
 result = positive_FTLE(
     u,
     v;
-    simulation_days = 10,
-    dynamics = true,
-    rint_hours = 3,
+    simulation_days = 1,
+    dynamics = false,
+    rint_hours = 6,
     return_result = true,
     time_indices = :nonzero,
 )
@@ -44,16 +75,16 @@ ftle_field_for_plotting = final_ftle_field(result)
 
 ## Negative-Time FTLE
 
-Negative-time FTLE uses the same velocity fields but runs particle advection
-backward in time:
+Negative-time FTLE for a frozen prescribed flow uses the same velocity fields
+but runs particle advection backward in time:
 
 ```julia
 negative = negative_FTLE(
     u,
     v;
-    simulation_days = 10,
-    dynamics = true,
-    rint_hours = 3,
+    simulation_days = 1,
+    dynamics = false,
+    rint_hours = 6,
     return_result = true,
     time_indices = :last,
 )
@@ -61,6 +92,16 @@ negative = negative_FTLE(
 
 Use `time_indices = :last` when you only need the final output. This avoids
 post-processing intermediate tracker columns.
+
+!!! warning "Frozen-flow backward integration only"
+    True negative-time FTLE in an unsteady flow requires the inverse flow map
+    through the reversed velocity history. The prescribed-field wrapper does
+    not currently store and replay an evolving SpeedyWeather velocity history.
+    Use `negative_FTLE(...; dynamics = false)` for frozen-flow backward
+    integration. Do not interpret `backwards = true` together with an evolving
+    forward model as a true unsteady negative-time FTLE calculation; the
+    high-level API now rejects `backwards = true, dynamics = true` with an
+    `ArgumentError`.
 
 ## Comparing Flow States
 

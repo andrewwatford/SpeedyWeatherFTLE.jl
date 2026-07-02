@@ -47,6 +47,12 @@ using SpeedyWeatherFTLE
             collect(0.0:3.0);
             result_kwargs...,
         )
+        diagnostic_result = FTLEResult(
+            FTLE,
+            nothing,
+            collect(0.0:3.0);
+            result_kwargs...,
+        )
         @test_throws DimensionMismatch FTLEResult(FTLE[:, end], spectral_grid, [3.0]; result_kwargs...)
         @test_throws DimensionMismatch FTLEResult(FTLE[1:end - 1, :], spectral_grid, collect(0.0:3.0); result_kwargs...)
         @test_throws DimensionMismatch FTLEResult(FTLE, spectral_grid, [0.0, 1.0]; result_kwargs...)
@@ -65,6 +71,16 @@ using SpeedyWeatherFTLE
         @test_throws DimensionMismatch ftle_field(FTLE[1:end - 1, end], spectral_grid)
         @test_throws ArgumentError ftle_field(result; time_indices = :middle)
         @test_throws ArgumentError ftle_field(result; time_indices = 2, time_hour = 2.0)
+        nonfinite_time_error = try
+            ftle_field(result; time_hour = NaN)
+            nothing
+        catch err
+            err
+        end
+        @test nonfinite_time_error isa ArgumentError
+        @test occursin("time_hour must be finite", sprint(showerror, nonfinite_time_error))
+        @test_throws ArgumentError ftle_field(diagnostic_result)
+        @test_throws ArgumentError final_ftle_field(diagnostic_result)
         finite_FTLE = filter(isfinite, vec(FTLE_with_nan))
         @test ftle_colorrange(FTLE_with_nan) == (minimum(finite_FTLE), maximum(finite_FTLE))
         @test ftle_colorrange(result) == ftle_colorrange(FTLE)
@@ -91,6 +107,7 @@ using SpeedyWeatherFTLE
         @test_throws BoundsError surface_plot(FTLE, spectral_grid; time_index = 0)
         @test_throws ArgumentError surface_plot(FTLE, spectral_grid; time_index = 2, time_hour = 2.0, time_hours = result.time_hours)
         @test_throws ArgumentError surface_plot(FTLE, spectral_grid; time_hour = 2.0)
+        @test_throws ArgumentError surface_plot(FTLE, spectral_grid; time_hour = NaN, time_hours = result.time_hours)
         @test_throws DimensionMismatch surface_plot(FTLE, spectral_grid; time_hour = 2.0, time_hours = [0.0, 1.0])
 
         shared_colorrange = (0.0, 1.0)
@@ -178,6 +195,7 @@ using SpeedyWeatherFTLE
         @test isa(cb, Colorbar)
         @test cb.label[] == "FTLE [1/h]"
         @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE, :, 3)))
+        @test_throws ArgumentError surface_plot(diagnostic_result)
 
         fig, ax, sp, cb = surface_plot(
             result;
@@ -192,6 +210,7 @@ using SpeedyWeatherFTLE
         @test isa(cb, Colorbar)
         @test sp.colorrange[] ≈ collect(ftle_colorrange(view(FTLE, :, 4)))
         @test_throws ArgumentError surface_plot(result; time_index = 2, time_hour = 2.0)
+        @test_throws ArgumentError surface_plot(result; time_hour = Inf)
 
         fig, ax, sp, cb = surface_plot(
             result;

@@ -1,6 +1,7 @@
 using SpeedyWeather, RingGrids
 using SpeedyWeatherFTLE
 using InteractiveUtils
+using Test
 
 @testset "get_FTLE.jl" begin
     nlat_half = 10
@@ -14,10 +15,14 @@ using InteractiveUtils
 
         for dynamics in (true, false)
             for backwards in (true, false)
-                FTLE, spectral_grid, time_hours = get_FTLE(u, v; dynamics=dynamics, backwards=backwards)
-                @test isa(FTLE, Matrix{Float64})
-                @test isa(spectral_grid, SpectralGrid)
-                @test isa(time_hours, Vector{Float64})
+                if backwards && dynamics
+                    @test_throws ArgumentError get_FTLE(u, v; dynamics=dynamics, backwards=backwards)
+                else
+                    FTLE, spectral_grid, time_hours = get_FTLE(u, v; dynamics=dynamics, backwards=backwards)
+                    @test isa(FTLE, Matrix{Float64})
+                    @test isa(spectral_grid, SpectralGrid)
+                    @test isa(time_hours, Vector{Float64})
+                end
             end
         end
     end
@@ -103,6 +108,7 @@ using InteractiveUtils
         @test size(negative_result, 2) == 1
         @test_throws ArgumentError positive_FTLE(u, v; backwards = true)
         @test_throws ArgumentError negative_FTLE(u, v; backwards = false)
+        @test_throws ArgumentError negative_FTLE(u, v; dynamics = true)
         selected_FTLE, selected_spectral_grid, selected_time_hours = get_FTLE(
             u,
             v;

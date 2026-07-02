@@ -36,11 +36,70 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v3
+      - name: Build package
+        run: julia --color=yes --project=@. -e 'using Pkg; Pkg.build(verbose=true)'
+      - name: Run tests
+        run: julia --color=yes --project=@. -e 'using Pkg; Pkg.test(coverage=true)'
+
+  fresh-install-smoke:
+    name: Fresh install smoke - Julia 1.12 - ubuntu-latest - x64
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v3
+        with:
+          version: '1.12'
+          arch: x64
+      - uses: julia-actions/cache@v3
       - name: Install headless display support
         run: |
           sudo apt-get update
           sudo apt-get install -y xvfb xauth
-      - name: Build package
-        run: xvfb-run -a julia --color=yes --project=@. -e 'using Pkg; Pkg.build(verbose=true)'
-      - name: Run tests
-        run: xvfb-run -a julia --color=yes --project=@. -e 'using Pkg; Pkg.test(coverage=true)'
+      - name: Run fresh-user install smoke
+        run: |
+          xvfb-run -a julia --color=yes -e '
+            using Pkg
+
+            project = mktempdir()
+            Pkg.activate(project)
+
+            repo_url = string(ENV["GITHUB_SERVER_URL"], "/", ENV["GITHUB_REPOSITORY"], ".git")
+            Pkg.add(PackageSpec(url = repo_url, rev = ENV["GITHUB_SHA"]))
+            Pkg.add([
+                PackageSpec(name = "RingGrids"),
+                PackageSpec(name = "CairoMakie"),
+                PackageSpec(name = "GLMakie"),
+            ])
+
+            using CairoMakie, Random, RingGrids, SpeedyWeatherFTLE
+            using GLMakie
+
+            CairoMakie.activate!()
+            Random.seed!(42)
+
+            grid = FullGaussianGrid(8)
+            u = 25 * rand(grid)
+            v = 25 * rand(grid)
+
+            result = positive_FTLE(
+                u,
+                v;
+                simulation_days = 1,
+                dynamics = false,
+                rint_hours = 6,
+                return_result = true,
+                time_indices = :nonzero,
+            )
+
+            @assert size(result, 1) > 0
+            @assert !isempty(result.time_hours)
+            @assert size(result, 2) == length(result.time_hours)
+            @assert any(isfinite, result.ftle)
+
+            fig, ax, sp, cb = surface_plot(result; coastlines = false, colorbar = false)
+            @assert fig !== nothing
+            @assert cb === nothing
+          '

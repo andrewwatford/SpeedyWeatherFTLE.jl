@@ -139,7 +139,8 @@ function surface_plot(
     time_hour::Union{Nothing,Real}=nothing,
     kwargs...
     )
-    return surface_plot(result.ftle, result.spectral_grid; time_index, time_hour, time_hours=result.time_hours, kwargs...)
+    spectral_grid = _require_spectral_grid(result, "surface_plot")
+    return surface_plot(result.ftle, spectral_grid; time_index, time_hour, time_hours=result.time_hours, kwargs...)
 end
 
 export surface_plot

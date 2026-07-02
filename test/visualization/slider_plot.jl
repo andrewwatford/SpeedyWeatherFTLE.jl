@@ -43,6 +43,26 @@ using SpeedyWeatherFTLE
     @test generic_handle.slidergrid.labels[1].text[] == "Time [h]"
     @test generic_handle.time_label.text[] == "t = 1 h"
 
+    fig, ax, sp, cb = slider_plot(
+        collect(1:5),
+        field_ts;
+        coastlines = false,
+        colorbar = true,
+        label = label,
+    )
+
+    @test isa(fig, Figure)
+    @test isa(ax, GeoAxis)
+    @test isa(sp, GeoMakie.Surface)
+    @test isa(cb, Colorbar)
+    @test cb.label[] == label
+    @test_throws ArgumentError slider_plot(
+        collect(1:5),
+        field_ts;
+        label = "label",
+        colorbar_label = "colorbar_label",
+    )
+
     @testset "FTLE matrix overload" begin
         spectral_grid = SpectralGrid(nlayers=1, trunc=6, Grid=FullGaussianGrid)
         FTLE = rand(spectral_grid.npoints, 5)
@@ -50,6 +70,15 @@ using SpeedyWeatherFTLE
         result = FTLEResult(
             FTLE,
             spectral_grid,
+            collect(0.0:4.0);
+            dist_km = 10,
+            backwards = false,
+            dynamics = false,
+            rint_hours = 1,
+        )
+        diagnostic_result = FTLEResult(
+            FTLE,
+            nothing,
             collect(0.0:4.0);
             dist_km = 10,
             backwards = false,
@@ -73,6 +102,30 @@ using SpeedyWeatherFTLE
         @test isa(cb, Colorbar)
         @test cb.label[] == label
         @test ax.title[] == title
+        @test_throws ArgumentError slider_plot(diagnostic_result)
+
+        fig, ax, sp, cb = slider_plot(
+            collect(0:4),
+            FTLE,
+            spectral_grid;
+            title = title,
+            colorbar = true,
+            label = label,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test isa(cb, Colorbar)
+        @test cb.label[] == label
+        @test_throws ArgumentError slider_plot(
+            collect(0:4),
+            FTLE,
+            spectral_grid;
+            label = "label",
+            colorbar_label = "colorbar_label",
+        )
 
         shared_colorrange = (0.0, 1.0)
         fig, ax, sp, cb = slider_plot(
@@ -96,6 +149,29 @@ using SpeedyWeatherFTLE
         @test sp.colorrange[] == collect(shared_colorrange)
         @test_throws DimensionMismatch slider_plot(collect(0:3), FTLE, spectral_grid)
         @test_throws BoundsError slider_plot(collect(0:4), FTLE, spectral_grid; start_index = 0)
+        zero_duration_FTLE = view(FTLE, :, 2:2)
+        zero_duration_error = try
+            slider_plot([0.0], zero_duration_FTLE, spectral_grid; coastlines = false)
+            nothing
+        catch err
+            err
+        end
+        @test zero_duration_error isa ArgumentError
+        @test occursin("start_index=1", sprint(showerror, zero_duration_error))
+
+        fig, ax, sp, cb = slider_plot(
+            [0.0],
+            zero_duration_FTLE,
+            spectral_grid;
+            start_index = 1,
+            colorbar = false,
+            coastlines = false,
+        )
+
+        @test isa(fig, Figure)
+        @test isa(ax, GeoAxis)
+        @test isa(sp, GeoMakie.Surface)
+        @test cb === nothing
 
         fig, ax, sp, cb = slider_plot(
             collect(0:4),
@@ -157,6 +233,7 @@ using SpeedyWeatherFTLE
         @test handle.slider.value[] == 1
         @test set_slider_time!(handle, 2.6) === handle
         @test handle.slider.value[] == 3
+        @test_throws ArgumentError set_slider_time!(handle, -Inf)
 
         compact_handle = slider_plot(
             result;

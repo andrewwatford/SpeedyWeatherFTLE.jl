@@ -107,6 +107,16 @@ using Test
             reread_FTLE, reread_time_hours = FTLE_from_particle_file(particle_path, spectral_grid, 500)
             @test isequal(reread_FTLE, FTLE)
             @test reread_time_hours == time_hours
+            @test_throws ArgumentError FTLE_from_particle_file(particle_path, spectral_grid, 400)
+
+            unchecked_FTLE, unchecked_time_hours = FTLE_from_particle_file(
+                particle_path,
+                spectral_grid,
+                400;
+                validate_initial_positions = false,
+            )
+            @test size(unchecked_FTLE) == size(FTLE)
+            @test unchecked_time_hours == time_hours
 
             FTLE_buffer = fill(NaN, size(FTLE))
             B_buffer = fill(NaN, 2, 2, spectral_grid.npoints)

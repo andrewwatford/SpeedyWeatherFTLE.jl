@@ -4,6 +4,8 @@ using SpeedyWeatherFTLE
 
 CairoMakie.activate!()
 
+prettyurls = get(ENV, "CI", "false") == "true"
+
 makedocs(
     sitename = "SpeedyWeatherFTLE",
     modules = [SpeedyWeatherFTLE],
@@ -16,9 +18,13 @@ makedocs(
         "API Reference" => "api.md",
     ],
     checkdocs = :exports,
-    format = Documenter.HTML(prettyurls = true),
+    format = Documenter.HTML(
+        prettyurls = prettyurls,
+        edit_link = "main",
+    ),
 )
 
 deploydocs(
     repo = "github.com/andrewwatford/SpeedyWeatherFTLE.jl",
+    devbranch = "main",
 )
