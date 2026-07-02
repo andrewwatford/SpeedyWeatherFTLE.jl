@@ -33,6 +33,25 @@ using SpeedyWeatherFTLE
         end
     end
 
+    fig, ax, sp, cb = globe_plot(
+        field;
+        lon = collect(-180:45:180),
+        lat = collect(-90:45:90),
+        coastlines = false,
+        colorbar = true,
+        figure_kwargs = (; size = (480, 320)),
+        axis_kwargs = (; show_axis = true),
+        surface_kwargs = (; transparency = false),
+        colorbar_kwargs = (; vertical = true),
+    )
+
+    @test isa(fig, Figure)
+    @test isa(ax, GeoMakie.GlobeAxis)
+    @test isa(sp, Makie.Surface)
+    @test isa(cb, Colorbar)
+    @test Tuple(fig.scene.viewport[].widths) == (480, 320)
+    @test ax.show_axis[] == true
+
     @testset "FTLE overloads" begin
         spectral_grid = SpectralGrid(nlayers=1, trunc=6, Grid=FullGaussianGrid)
         FTLE = rand(spectral_grid.npoints, 4)

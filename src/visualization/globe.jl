@@ -29,7 +29,7 @@ Makie autoscaling.
 - `colorrange = nothing`: optional color limits for `Field` inputs; FTLE inputs default to finite-value extrema.
 - `colorbar = true`: add a colorbar.
 - `label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
-- `coastlines = true`: draw GeoMakie coastlines on the globe.
+- `coastlines = true`: draw GeoMakie coastlines on the globe as a visual overlay.
 - `coastline_color = :black`: coastline color.
 - `coastline_linewidth = 1`: coastline line width.
 - `zlevel = 10_000`: altitude offset, in metres, for the field surface.
@@ -37,8 +37,10 @@ Makie autoscaling.
 - `show_axis = false`: show the underlying 3D axis.
 - `camera_longlat = Makie.automatic`: optional initial camera longitude and latitude.
 - `camera_altitude = Makie.automatic`: optional initial camera altitude.
+- `figure_kwargs = (;)`: extra keyword arguments forwarded to `Figure`.
 - `axis_kwargs = (;)`: extra keyword arguments forwarded to `GeoMakie.GlobeAxis`.
 - `surface_kwargs = (;)`: extra keyword arguments forwarded to `surface!`.
+- `colorbar_kwargs = (;)`: extra keyword arguments forwarded to `Colorbar`.
 - `coastline_kwargs = (;)`: extra keyword arguments forwarded to `lines!`.
 
 # Returns
@@ -64,15 +66,17 @@ function globe_plot(
     show_axis::Bool=false,
     camera_longlat=Makie.automatic,
     camera_altitude=Makie.automatic,
+    figure_kwargs=NamedTuple(),
     axis_kwargs=NamedTuple(),
     surface_kwargs=NamedTuple(),
+    colorbar_kwargs=NamedTuple(),
     coastline_kwargs=NamedTuple(),
     )
 
     field_data = _field_on_lonlat(field, lon, lat)
     altitude = zeros(Float32, length(lon), length(lat))
 
-    fig = Figure()
+    fig = Figure(; figure_kwargs...)
     globe_title = title === nothing ? "" : title
     axis_attributes = merge(
         (; show_axis, title=globe_title, camera_longlat, camera_altitude),
@@ -99,10 +103,11 @@ function globe_plot(
     end
 
     if colorbar
+        colorbar_attributes = merge((; height=Relative(0.7)), colorbar_kwargs)
         if label === nothing
-            cb = Colorbar(fig[1, 2], sp; height=Relative(0.7))
+            cb = Colorbar(fig[1, 2], sp; colorbar_attributes...)
         else
-            cb = Colorbar(fig[1, 2], sp; label, height=Relative(0.7))
+            cb = Colorbar(fig[1, 2], sp; label, colorbar_attributes...)
         end
     else
         cb = nothing

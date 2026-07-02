@@ -24,7 +24,7 @@ autoscaling.
 - `colorrange = nothing`: optional color limits for `Field` inputs; FTLE inputs default to finite-value extrema. Use [`ftle_colorrange`](@ref) for comparable plots.
 - `colorbar = true`: add a colorbar.
 - `label = nothing`: optional colorbar label for `Field` inputs; FTLE inputs default to `FTLE [1/h]`.
-- `coastlines = true`: draw GeoMakie coastlines.
+- `coastlines = true`: draw GeoMakie coastlines as a visual overlay.
 - `coastline_color = :black`: coastline color.
 - `coastline_linewidth = 1`: coastline line width.
 - `figure_kwargs = (;)`: extra keyword arguments forwarded to `Figure`.
