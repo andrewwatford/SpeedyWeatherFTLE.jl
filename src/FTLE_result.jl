@@ -13,7 +13,8 @@ or reusing saved particle files. `FTLEResult` supports array-like `size`,
 # Fields
 
 - `ftle`: matrix with dimensions `(grid point, selected time)`.
-- `spectral_grid`: SpeedyWeather spectral grid used by the run.
+- `spectral_grid`: SpeedyWeather spectral grid used by the run, or `nothing`
+  when only non-spatial diagnostics are needed.
 - `time_hours`: selected tracker output times, measured in hours since release,
   with one entry per `ftle` column.
 - `particle_file_path`: path to the saved particle file, or `nothing`.
@@ -48,9 +49,11 @@ function FTLEResult(
 )
     ndims(ftle) == 2 ||
         throw(DimensionMismatch("ftle must be a matrix with dimensions (grid point, selected time)"))
-    npoints = _grid_npoints(spectral_grid)
-    size(ftle, 1) == npoints ||
-        throw(DimensionMismatch("ftle has $(size(ftle, 1)) rows, but the spectral grid has $npoints grid points"))
+    if spectral_grid !== nothing
+        npoints = _grid_npoints(spectral_grid)
+        size(ftle, 1) == npoints ||
+            throw(DimensionMismatch("ftle has $(size(ftle, 1)) rows, but the spectral grid has $npoints grid points"))
+    end
     length(time_hours) == size(ftle, 2) ||
         throw(DimensionMismatch("time_hours has length $(length(time_hours)), but ftle has $(size(ftle, 2)) time columns"))
 
