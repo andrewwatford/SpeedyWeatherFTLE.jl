@@ -183,13 +183,6 @@ function slider_plot(
     return_handle::Bool=false,
     kwargs...
     )
-    """
-    Create a slider plot directly from the `(FTLE_grid_time, spectral_grid,
-    time_hours)` values returned by `get_FTLE`.
-
-    By default the zero-duration sample is skipped, since its FTLE is undefined.
-    Set `start_index=1` to include it.
-    """
     length(times) == size(FTLE_grid_time, 2) ||
         throw(DimensionMismatch("times has length $(length(times)), but FTLE_grid_time has $(size(FTLE_grid_time, 2)) time steps"))
 
@@ -219,9 +212,6 @@ function slider_plot(
     result::FTLEResult;
     kwargs...
     )
-    """
-    Create a slider plot from an `FTLEResult`.
-    """
     return slider_plot(result.time_hours, result.ftle, result.spectral_grid; kwargs...)
 end
 

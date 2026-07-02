@@ -13,12 +13,6 @@ selects one or more saved columns, while `time_hour` selects the saved
 integration horizon nearest that hour.
 """
 function ftle_field(FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid)
-    """
-    Convert the matrix returned by `get_FTLE` into a RingGrids `Field`.
-
-    `grid_or_spectral_grid` may be either the `SpectralGrid` returned by
-    `get_FTLE` or its spatial grid.
-    """
     npoints = _grid_npoints(grid_or_spectral_grid)
     size(FTLE_grid_time, 1) == npoints ||
         throw(DimensionMismatch("FTLE_grid_time has $(size(FTLE_grid_time, 1)) rows, but the grid has $npoints points"))
@@ -27,12 +21,6 @@ function ftle_field(FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid)
 end
 
 function ftle_field(FTLE_grid::AbstractVector, grid_or_spectral_grid)
-    """
-    Convert a single-time FTLE vector into a RingGrids `Field`.
-
-    `grid_or_spectral_grid` may be either the `SpectralGrid` returned by
-    `get_FTLE` or its spatial grid.
-    """
     npoints = _grid_npoints(grid_or_spectral_grid)
     length(FTLE_grid) == npoints ||
         throw(DimensionMismatch("FTLE_grid has length $(length(FTLE_grid)), but the grid has $npoints points"))

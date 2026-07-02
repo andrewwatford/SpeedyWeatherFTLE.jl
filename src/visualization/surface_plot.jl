@@ -63,27 +63,6 @@ function surface_plot(
     colorbar_kwargs=NamedTuple(),
     coastline_kwargs=NamedTuple(),
     )
-    """
-    Create a surface plot of a 2D field on a geographic axis. Currently supports only the default projection in GeoMakie.
-
-    # Arguments
-    - `field::Field`: 2D field data to be plotted.
-    - `lon::Vector`: Longitudes of the points to interpolate onto.
-    - `lat::Vector`: Latitudes of the points to interpolate onto.
-    - `shading`: Shading option for the surface plot (default: `NoShading`).
-    - `title`: Title of the plot. (default: `nothing`).
-    - `colormap`: Colormap to use for the surface plot. (default: `:viridis`).
-    - `colorrange`: Optional color limits.
-    - `colorbar::Bool`: Whether to include a colorbar in the plot. (default: `true`).
-    - `label`: Label for the colorbar. (default: `nothing`).
-    - `coastlines::Bool`: Whether to add coastlines to the plot. (default: `true`).
-
-    # Returns
-    - `fig`: The figure object.
-    - `ax`: The geographic axis object.
-    - `sp`: The surface plot object.
-    - `cb`: The colorbar object (if `colorbar` is `true`).
-    """
     lon_vec = vec([lo for lo in lon, la in lat])
     lat_vec = vec([la for lo in lon, la in lat])
     field_data = interpolate(lon_vec, lat_vec, field)
@@ -121,12 +100,6 @@ function surface_plot(
     grid_or_spectral_grid;
     kwargs...
     )
-    """
-    Create a surface plot directly from a single-time FTLE vector.
-
-    `grid_or_spectral_grid` may be either the `SpectralGrid` returned by
-    `get_FTLE` or its spatial grid.
-    """
     field = ftle_field(FTLE_grid, grid_or_spectral_grid)
     plot_kwargs = (; kwargs...)
     if !(:label in keys(plot_kwargs))
@@ -146,13 +119,6 @@ function surface_plot(
     time_hours=nothing,
     kwargs...
     )
-    """
-    Create a surface plot directly from the `FTLE_grid_time` matrix returned by
-    `get_FTLE`.
-
-    `grid_or_spectral_grid` may be either the `SpectralGrid` returned by
-    `get_FTLE` or its spatial grid.
-    """
     resolved_index = _resolve_time_index(FTLE_grid_time; time_index, time_hour, time_hours)
 
     ftle_values = view(FTLE_grid_time, :, resolved_index)
@@ -173,9 +139,6 @@ function surface_plot(
     time_hour::Union{Nothing,Real}=nothing,
     kwargs...
     )
-    """
-    Create a surface plot from an `FTLEResult`.
-    """
     return surface_plot(result.ftle, result.spectral_grid; time_index, time_hour, time_hours=result.time_hours, kwargs...)
 end
 
