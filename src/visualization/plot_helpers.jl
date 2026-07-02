@@ -5,6 +5,7 @@ end
 _plot_values(result::FTLEResult) = result.ftle
 
 const _FTLE_COLORBAR_LABEL = "FTLE [1/h]"
+const _FTLE_SLIDER_LABEL = "Integration time [h]"
 
 """
     ftle_colorrange(data...; symmetric = false, pad = 0)

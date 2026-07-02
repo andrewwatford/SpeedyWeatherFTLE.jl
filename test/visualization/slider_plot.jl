@@ -32,6 +32,17 @@ using SpeedyWeatherFTLE
         end
     end
 
+    generic_handle = slider_plot(
+        collect(1:5),
+        field_ts;
+        coastlines = false,
+        colorbar = false,
+        return_handle = true,
+    )
+
+    @test generic_handle.slidergrid.labels[1].text[] == "Time [h]"
+    @test generic_handle.time_label.text[] == "t = 1 h"
+
     @testset "FTLE matrix overload" begin
         spectral_grid = SpectralGrid(nlayers=1, trunc=6, Grid=FullGaussianGrid)
         FTLE = rand(spectral_grid.npoints, 5)
@@ -141,6 +152,8 @@ using SpeedyWeatherFTLE
         @test handle.cb === nothing
         @test isa(handle.time_label, Label)
         @test handle.times == collect(1.0:4.0)
+        @test handle.slidergrid.labels[1].text[] == "Integration time [h]"
+        @test handle.time_label.text[] == "Integration time = 1.0 h"
         @test handle.slider.value[] == 1
         @test set_slider_time!(handle, 2.6) === handle
         @test handle.slider.value[] == 3

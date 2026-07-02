@@ -38,6 +38,7 @@ function _slider_plot_handle(
     coastline_color=:black,
     coastline_linewidth=1,
     coastline_kwargs=NamedTuple(),
+    slider_label="Time [h]",
     time_label::Bool=true,
     time_label_format=t -> "t = $(t) h",
     figure_kwargs=NamedTuple(),
@@ -67,7 +68,7 @@ function _slider_plot_handle(
     end
     sg = SliderGrid(
         time_label ? slider_layout[2, 1] : slider_layout,
-        (label = "Time [h]", range = 1:n_times, format = i -> "$(times[Int(i)]) h", startvalue = 1))
+        (label = slider_label, range = 1:n_times, format = i -> "$(times[Int(i)]) h", startvalue = 1))
     sl = sg.sliders[1]
 
     time_display = if time_label
@@ -126,8 +127,9 @@ zero-duration sample is skipped by default because FTLE is undefined at
 `t = 0`; pass `start_index = 1` to include it. For FTLE outputs, the slider
 shows different integration durations from the same particle release, not a
 time series of independent instantaneous FTLE fields. FTLE array and result
-inputs label the colorbar as `FTLE [1/h]` by default; pass
-`colorbar_label = nothing` to suppress it.
+inputs label the colorbar as `FTLE [1/h]` and the slider as
+`Integration time [h]` by default; pass `colorbar_label = nothing` to suppress
+the colorbar label.
 
 # Keyword Arguments
 
@@ -143,8 +145,11 @@ inputs label the colorbar as `FTLE [1/h]` by default; pass
 - `coastline_color = :black`: coastline color.
 - `coastline_linewidth = 1`: coastline line width.
 - `coastline_kwargs = (;)`: extra keyword arguments forwarded to `lines!`.
+- `slider_label = "Time [h]"`: label beside the slider; FTLE inputs default
+  to `Integration time [h]`.
 - `time_label = true`: show a live label above the slider with the active time.
-- `time_label_format = t -> "t = \$(t) h"`: format the live time label.
+- `time_label_format = t -> "t = \$(t) h"`: format the live time label; FTLE
+  inputs default to integration-time wording.
 - `figure_kwargs = (;)`: extra keyword arguments forwarded to `Figure`.
 - `axis_kwargs = (;)`: extra keyword arguments forwarded to `GeoAxis`.
 - `surface_kwargs = (;)`: extra keyword arguments forwarded to `surface!`.
@@ -194,17 +199,18 @@ function slider_plot(
 
     time_indices = start_index:lastindex(times)
     field_ts = ftle_field(view(FTLE_grid_time, :, time_indices), grid_or_spectral_grid)
-    if :colorbar_label in keys(kwargs)
-        return slider_plot(times[time_indices], field_ts; return_handle, kwargs...)
-    else
-        return slider_plot(
-            times[time_indices],
-            field_ts;
-            return_handle,
-            colorbar_label=_FTLE_COLORBAR_LABEL,
-            kwargs...,
-        )
+    plot_kwargs = (; kwargs...)
+    if !(:colorbar_label in keys(plot_kwargs))
+        plot_kwargs = merge((; colorbar_label=_FTLE_COLORBAR_LABEL), plot_kwargs)
     end
+    if !(:slider_label in keys(plot_kwargs))
+        plot_kwargs = merge((; slider_label=_FTLE_SLIDER_LABEL), plot_kwargs)
+    end
+    if !(:time_label_format in keys(plot_kwargs))
+        plot_kwargs = merge((; time_label_format=t -> "Integration time = $(t) h"), plot_kwargs)
+    end
+
+    return slider_plot(times[time_indices], field_ts; return_handle, plot_kwargs...)
 end
 
 function slider_plot(

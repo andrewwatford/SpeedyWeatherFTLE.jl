@@ -123,8 +123,10 @@ fig, ax, sp, cb = slider_plot(
 
 The zero-duration tracker sample is skipped by default because FTLE is
 undefined at `t = 0`. Pass `start_index = 1` if you explicitly want to include
-that column. Slider plots show the active time above the slider by default; set
-`time_label = false` to hide it, or pass `time_label_format` to customize it.
+that column. Slider plots show the active slider value above the slider by
+default; set `time_label = false` to hide it, or pass `time_label_format` to
+customize it. FTLE inputs use integration-time wording for the slider controls;
+generic time-dependent fields keep the usual `Time [h]` default.
 As with static maps, pass `axis_kwargs`, `surface_kwargs`, `colorbar_kwargs`,
 or `coastline_kwargs` when you need lower-level Makie styling.
 
