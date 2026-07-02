@@ -36,5 +36,11 @@ jobs:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v3
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-runtest@v1
+      - name: Install headless display support
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb xauth
+      - name: Build package
+        run: xvfb-run -a julia --color=yes --project=@. -e 'using Pkg; Pkg.build(verbose=true)'
+      - name: Run tests
+        run: xvfb-run -a julia --color=yes --project=@. -e 'using Pkg; Pkg.test(coverage=true)'
