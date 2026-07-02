@@ -53,10 +53,12 @@ using SpeedyWeatherFTLE
         @test final_ftle(result) == FTLE[:, end]
         @test final_ftle_field(result) == final_field
         @test ftle_field(result; time_indices = 2) == ftle_field(view(FTLE, :, 2), spectral_grid)
+        @test ftle_field(result; time_hour = 1.6) == ftle_field(view(FTLE, :, 3), spectral_grid)
         @test ftle_field(result; time_indices = :last) == final_field
         @test ftle_field(result; time_indices = :nonzero) == ftle_field(view(FTLE, :, 2:4), spectral_grid)
         @test_throws DimensionMismatch ftle_field(FTLE[1:end - 1, end], spectral_grid)
         @test_throws ArgumentError ftle_field(result; time_indices = :middle)
+        @test_throws ArgumentError ftle_field(result; time_indices = 2, time_hour = 2.0)
         finite_FTLE = filter(isfinite, vec(FTLE_with_nan))
         @test ftle_colorrange(FTLE_with_nan) == (minimum(finite_FTLE), maximum(finite_FTLE))
         @test ftle_colorrange(result) == ftle_colorrange(FTLE)

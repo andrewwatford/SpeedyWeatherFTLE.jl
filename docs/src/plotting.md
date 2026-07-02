@@ -256,4 +256,5 @@ or interpolation code:
 field_ts = ftle_field(FTLE_grid_time, spatial_grid)
 field_final = ftle_field(FTLE_grid_time[:, end], spatial_grid)
 field_from_result = ftle_field(result; time_indices = :last)
+field_at_24h = ftle_field(result; time_hour = 24)
 ```

@@ -1,14 +1,16 @@
 """
     ftle_field(FTLE_grid_time, grid_or_spectral_grid)
     ftle_field(FTLE_grid, grid_or_spectral_grid)
-    ftle_field(result::FTLEResult; time_indices = :)
+    ftle_field(result::FTLEResult; time_indices = :, time_hour = nothing)
 
 Convert FTLE arrays into `RingGrids.Field` objects.
 
 Use the matrix form for a full `(grid point, integration horizon)` FTLE output,
 the vector form for a single output time, or pass an [`FTLEResult`](@ref)
 directly. The grid argument may be either the `SpectralGrid` returned by
-[`get_FTLE`](@ref) or its spatial grid.
+[`get_FTLE`](@ref) or its spatial grid. For result inputs, `time_indices`
+selects one or more saved columns, while `time_hour` selects the saved
+integration horizon nearest that hour.
 """
 function ftle_field(FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid)
     """

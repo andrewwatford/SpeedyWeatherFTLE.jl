@@ -58,8 +58,20 @@ function FTLEResult(
     )
 end
 
-function ftle_field(result::FTLEResult; time_indices=Colon())
-    selected_time_indices = _checked_time_indices(time_indices, result.time_hours)
+function ftle_field(result::FTLEResult; time_indices=Colon(), time_hour::Union{Nothing,Real}=nothing)
+    if time_hour !== nothing
+        isequal(time_indices, Colon()) ||
+            throw(ArgumentError("pass either time_indices or time_hour, not both"))
+        selected_time_indices = [_resolve_time_index(
+            result.ftle;
+            time_index=nothing,
+            time_hour,
+            time_hours=result.time_hours,
+        )]
+    else
+        selected_time_indices = _checked_time_indices(time_indices, result.time_hours)
+    end
+
     if length(selected_time_indices) == 1
         return ftle_field(view(result.ftle, :, first(selected_time_indices)), result.spectral_grid)
     else
