@@ -11,5 +11,4 @@ slider_plot
 set_slider_time!
 animate_slider_plot
 globe_plot
-Re
 ```

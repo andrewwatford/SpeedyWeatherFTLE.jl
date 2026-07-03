@@ -1,9 +1,10 @@
-function _check_stencil_centers(londs, latds, dist_km)
+function _check_stencil_centers(londs, latds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     length(londs) == length(latds) ||
         throw(DimensionMismatch("londs and latds must have the same length"))
 
     dist_km = _check_dist_km(dist_km)
-    delta_lat = rad2deg(dist_km * 1000 / Re)
+    radius = _check_radius(radius)
+    delta_lat = rad2deg(dist_km * 1000 / radius)
     delta_lat <= _MAX_STENCIL_DEGREES ||
         throw(ArgumentError("dist_km=$dist_km is too large for the local spherical stencil"))
 
@@ -22,8 +23,8 @@ function _check_stencil_centers(londs, latds, dist_km)
     return length(londs), delta_lat
 end
 
-function _initial_particle_positions!(plonds, platds, londs, latds, dist_km)
-    npoints, delta_lat = _check_stencil_centers(londs, latds, dist_km)
+function _initial_particle_positions!(plonds, platds, londs, latds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
+    npoints, delta_lat = _check_stencil_centers(londs, latds, dist_km; radius)
     expected_length = 4 * npoints
     length(plonds) == expected_length || throw(DimensionMismatch("plonds must have length $expected_length"))
     length(platds) == expected_length || throw(DimensionMismatch("platds must have length $expected_length"))
@@ -44,26 +45,26 @@ function _initial_particle_positions!(plonds, platds, londs, latds, dist_km)
     return plonds, platds
 end
 
-function _initial_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km)
+function _initial_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     londs, latds = RingGrids.get_londlatds(_spatial_grid(grid_or_spectral_grid))
-    return _initial_particle_positions!(plonds, platds, londs, latds, dist_km)
+    return _initial_particle_positions!(plonds, platds, londs, latds, dist_km; radius)
 end
 
-function _initial_particle_positions(londs, latds, dist_km)
+function _initial_particle_positions(londs, latds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     plonds = Vector{Float64}(undef, 4 * length(londs))
     platds = similar(plonds)
-    return _initial_particle_positions!(plonds, platds, londs, latds, dist_km)
+    return _initial_particle_positions!(plonds, platds, londs, latds, dist_km; radius)
 end
 
-function _initial_particle_positions(grid_or_spectral_grid, dist_km)
+function _initial_particle_positions(grid_or_spectral_grid, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     npoints = _grid_npoints(grid_or_spectral_grid)
     plonds = Vector{Float64}(undef, 4 * npoints)
     platds = similar(plonds)
-    return _initial_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km)
+    return _initial_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km; radius)
 end
 
-function _perturb_positions!(particles, londs, latds, dist_km)
-    npoints, delta_lat = _check_stencil_centers(londs, latds, dist_km)
+function _perturb_positions!(particles, londs, latds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
+    npoints, delta_lat = _check_stencil_centers(londs, latds, dist_km; radius)
     expected_length = 4 * npoints
     length(particles) == expected_length ||
         throw(DimensionMismatch("particles must have length $expected_length"))

@@ -78,6 +78,10 @@ backward_ftle, backward_time_hours = FTLE(
 )
 ```
 
+`FTLE` defaults to `radius = SpeedyWeather.DEFAULT_RADIUS`. Pass a different
+radius in metres to change the spherical distance scale used by the internal
+model and FTLE particle geometry.
+
 Dynamic model workflows are out of scope for this package. `FTLE` initializes
 the internal SpeedyWeather simulation with `dynamics = false`.
 
@@ -104,7 +108,6 @@ fig_globe, ax_globe, sp_globe, cb_globe = globe_plot(ftle; time_hours, coastline
 - `stretching_factor`, `stretching_factor!`
 - `surface_plot`, `slider_plot`, `globe_plot`, `animate_slider_plot`
 - `SliderPlotHandle`, `set_slider_time!`, `shared_colorrange`
-- `Re`
 
 ## Development
 

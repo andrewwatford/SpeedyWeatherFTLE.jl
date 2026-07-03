@@ -6,6 +6,12 @@ function _check_dist_km(dist_km)
     return Float64(dist_km)
 end
 
+function _check_radius(radius)
+    radius isa Real && isfinite(radius) && radius > 0 ||
+        throw(ArgumentError("radius must be finite and positive"))
+    return Float64(radius)
+end
+
 function _check_positive(value, name)
     value isa Real && isfinite(value) && value > 0 ||
         throw(ArgumentError("$name must be finite and positive"))
