@@ -22,6 +22,8 @@ makedocs(
     ),
 )
 
+touch(joinpath(@__DIR__, "build", ".nojekyll"))
+
 deploydocs(
     repo = "github.com/andrewwatford/SpeedyWeatherFTLE.jl.git",
     devbranch = "main",
