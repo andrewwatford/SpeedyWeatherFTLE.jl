@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Worked Example · SpeedyWeatherFTLE</title><meta name="title" content="Worked Example · SpeedyWeatherFTLE"/><meta property="og:title" content="Worked Example · SpeedyWeatherFTLE"/><meta property="twitter:title" content="Worked Example · SpeedyWeatherFTLE"/><meta name="description" content="Documentation for SpeedyWeatherFTLE."/><meta property="og:description" content="Documentation for SpeedyWeatherFTLE."/><meta property="twitter:description" content="Documentation for SpeedyWeatherFTLE."/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">SpeedyWeatherFTLE</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../simulation/">Running FTLE</a></li><li class="is-active"><a class="tocitem" href>Worked Example</a></li><li><a class="tocitem" href="../plotting/">Plotting</a></li><li><a class="tocitem" href="../api/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Worked Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Worked Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/andrewwatford/SpeedyWeatherFTLE.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/andrewwatford/SpeedyWeatherFTLE.jl/blob/main/docs/src/zonal_jet.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Worked-Example:-Zonal-Jet-FTLE"><a class="docs-heading-anchor" href="#Worked-Example:-Zonal-Jet-FTLE">Worked Example: Zonal Jet FTLE</a><a id="Worked-Example:-Zonal-Jet-FTLE-1"></a><a class="docs-heading-anchor-permalink" href="#Worked-Example:-Zonal-Jet-FTLE" title="Permalink"></a></h1><p>This example follows SpeedyWeather&#39;s shallow-water zonal jet setup with Earth orography, then computes FTLE fields from the velocity fields at the beginning and end of the run.</p><pre><code class="language-julia hljs">using CairoMakie
+using GeoMakie
+using Logging
+using SpeedyWeather
+using SpeedyWeatherFTLE
+
+CairoMakie.activate!()
+
+simulation_period = Day(30)
+ftle_period_days = 1
+
+spectral_grid = SpectralGrid(trunc = 21, nlayers = 1)
+orography = EarthOrography(spectral_grid)
+initial_conditions = ZonalJet(spectral_grid)
+model = with_logger(NullLogger()) do
+    ShallowWaterModel(spectral_grid; orography, initial_conditions)
+end
+simulation = with_logger(NullLogger()) do
+    initialize!(model)
+end</code></pre><p>The zero-step run below asks SpeedyWeather to materialize the initial grid fields without advancing the jet. We copy the initial vorticity and velocity fields before the ordinary thirty-day shallow-water run changes them.</p><pre><code class="language-julia hljs">with_logger(NullLogger()) do
+    run!(simulation, steps = 0)
+end
+
+initial_vorticity = copy(simulation.variables.grid.vorticity[:, 1])
+initial_u = copy(simulation.variables.grid.u[:, 1])
+initial_v = copy(simulation.variables.grid.v[:, 1])
+
+with_logger(NullLogger()) do
+    run!(simulation, period = simulation_period)
+end
+
+final_vorticity = copy(simulation.variables.grid.vorticity[:, 1])
+final_u = copy(simulation.variables.grid.u[:, 1])
+final_v = copy(simulation.variables.grid.v[:, 1])
+
+(extrema(initial_vorticity), extrema(final_vorticity))</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">((-6.246722f-5, 8.474117f-5), (-6.1111314f-5, 3.8707534f-5))</code></pre><p>The copied fields are <code>RingGrids.Field</code> values, so they can be plotted directly. Use a shared symmetric color range to compare the initial and final relative vorticity fields.</p><pre><code class="language-julia hljs">plot_lon = -180:2:180
+plot_lat = -90:2:90
+vorticity_colorrange = shared_colorrange(
+    initial_vorticity,
+    final_vorticity;
+    symmetric = true,
+)
+
+fig_initial_vorticity, _, _, _ = surface_plot(
+    initial_vorticity;
+    lon = plot_lon,
+    lat = plot_lat,
+    title = &quot;Initial relative vorticity&quot;,
+    label = &quot;Relative vorticity [1/s]&quot;,
+    colorrange = vorticity_colorrange,
+    coastlines = false,
+)
+
+fig_initial_vorticity</code></pre><img src="255915f0.png" alt="Example block output"/><pre><code class="language-julia hljs">fig_final_vorticity, _, _, _ = surface_plot(
+    final_vorticity;
+    lon = plot_lon,
+    lat = plot_lat,
+    title = &quot;Relative vorticity after 30 days&quot;,
+    label = &quot;Relative vorticity [1/s]&quot;,
+    colorrange = vorticity_colorrange,
+    coastlines = false,
+)
+
+fig_final_vorticity</code></pre><img src="eb8bbcdd.png" alt="Example block output"/><p>Now compute finite-time Lyapunov exponent fields from the initial and final velocity fields. Here the FTLE integration time is one day, sampled every six hours, and only the final integration horizon is returned.</p><pre><code class="language-julia hljs">initial_ftle, initial_time_hours = with_logger(NullLogger()) do
+    FTLE(
+        initial_u,
+        initial_v;
+        simulation_days = ftle_period_days,
+        rint_hours = 6,
+        particle_advection_every_n_time_steps = 4,
+        time_indices = :last,
+    )
+end
+
+final_ftle, final_time_hours = with_logger(NullLogger()) do
+    FTLE(
+        final_u,
+        final_v;
+        simulation_days = ftle_period_days,
+        rint_hours = 6,
+        particle_advection_every_n_time_steps = 4,
+        time_indices = :last,
+    )
+end
+
+(initial_time_hours, final_time_hours)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([24.0], [24.0])</code></pre><p>Again use a shared color range so the two FTLE fields are visually comparable. The returned FTLE fields carry the same grid as the velocity fields.</p><pre><code class="language-julia hljs">ftle_colorrange = shared_colorrange(initial_ftle, final_ftle; pad = 0.05)
+
+fig_initial_ftle, _, _, _ = surface_plot(
+    initial_ftle;
+    time_hours = initial_time_hours,
+    lon = plot_lon,
+    lat = plot_lat,
+    title = &quot;FTLE from the initial velocity field&quot;,
+    colorrange = ftle_colorrange,
+    coastlines = false,
+)
+
+fig_initial_ftle</code></pre><img src="3534df77.png" alt="Example block output"/><pre><code class="language-julia hljs">fig_final_ftle, _, _, _ = surface_plot(
+    final_ftle;
+    time_hours = final_time_hours,
+    lon = plot_lon,
+    lat = plot_lat,
+    title = &quot;FTLE from the final velocity field&quot;,
+    colorrange = ftle_colorrange,
+    coastlines = false,
+)
+
+fig_final_ftle</code></pre><img src="20c3fe3f.png" alt="Example block output"/></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../simulation/">« Running FTLE</a><a class="docs-footer-nextpage" href="../plotting/">Plotting »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 3 July 2026 12:54">Friday 3 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
