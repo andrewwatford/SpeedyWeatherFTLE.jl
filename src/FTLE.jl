@@ -38,8 +38,8 @@ Keywords:
 - `simulation_days = 10`: integration length in days.
 - `dist_km = 10`: local stencil radius used internally for the deformation
   estimate.
-- `radius = Re`: planet radius, in metres, used for the SpeedyWeather model and
-  local latitude/longitude distance conversions.
+- `radius = SpeedyWeather.DEFAULT_RADIUS`: planet radius, in metres, used for
+  the SpeedyWeather model and local latitude/longitude distance conversions.
 - `backwards = false`: set `true` for backward-time FTLE.
 - `rint_hours = 3`: output interval, in hours.
 - `particle_advection_every_n_time_steps = 6`: cadence for the internal
@@ -58,7 +58,7 @@ function FTLE(
     v::Field;
     simulation_days=10,
     dist_km=10,
-    radius=Re,
+    radius=SpeedyWeather.DEFAULT_RADIUS,
     backwards=false,
     rint_hours=3,
     particle_advection_every_n_time_steps=6,

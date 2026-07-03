@@ -7,7 +7,7 @@ using Test
     @testset "public API surface" begin
         @test isdefined(SpeedyWeatherFTLE, :FTLE)
         @test isdefined(SpeedyWeatherFTLE, :shared_colorrange)
-        @test SpeedyWeatherFTLE.Re == SpeedyWeather.DEFAULT_RADIUS
+        @test !isdefined(SpeedyWeatherFTLE, :Re)
         @test !isdefined(SpeedyWeatherFTLE, :FTLEResult)
         @test !isdefined(SpeedyWeatherFTLE, :final_ftle)
         @test !isdefined(SpeedyWeatherFTLE, :final_ftle_field)
@@ -22,7 +22,7 @@ using Test
     end
 
     @testset "configurable planet radius" begin
-        radius = 2 * SpeedyWeatherFTLE.Re
+        radius = 2 * SpeedyWeather.DEFAULT_RADIUS
         dist_km = 10
         delta = rad2deg(dist_km * 1000 / radius)
 
@@ -61,7 +61,7 @@ using Test
         ftle, time_hours = FTLE(
             u,
             v;
-            radius=2 * SpeedyWeatherFTLE.Re,
+            radius=2 * SpeedyWeather.DEFAULT_RADIUS,
             backwards=true,
             simulation_days=0.25,
             rint_hours=3,

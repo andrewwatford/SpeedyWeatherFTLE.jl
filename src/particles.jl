@@ -1,4 +1,4 @@
-function _check_stencil_centers(londs, latds, dist_km; radius=Re)
+function _check_stencil_centers(londs, latds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     length(londs) == length(latds) ||
         throw(DimensionMismatch("londs and latds must have the same length"))
 
@@ -23,7 +23,7 @@ function _check_stencil_centers(londs, latds, dist_km; radius=Re)
     return length(londs), delta_lat
 end
 
-function _initial_particle_positions!(plonds, platds, londs, latds, dist_km; radius=Re)
+function _initial_particle_positions!(plonds, platds, londs, latds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     npoints, delta_lat = _check_stencil_centers(londs, latds, dist_km; radius)
     expected_length = 4 * npoints
     length(plonds) == expected_length || throw(DimensionMismatch("plonds must have length $expected_length"))
@@ -45,25 +45,25 @@ function _initial_particle_positions!(plonds, platds, londs, latds, dist_km; rad
     return plonds, platds
 end
 
-function _initial_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km; radius=Re)
+function _initial_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     londs, latds = RingGrids.get_londlatds(_spatial_grid(grid_or_spectral_grid))
     return _initial_particle_positions!(plonds, platds, londs, latds, dist_km; radius)
 end
 
-function _initial_particle_positions(londs, latds, dist_km; radius=Re)
+function _initial_particle_positions(londs, latds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     plonds = Vector{Float64}(undef, 4 * length(londs))
     platds = similar(plonds)
     return _initial_particle_positions!(plonds, platds, londs, latds, dist_km; radius)
 end
 
-function _initial_particle_positions(grid_or_spectral_grid, dist_km; radius=Re)
+function _initial_particle_positions(grid_or_spectral_grid, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     npoints = _grid_npoints(grid_or_spectral_grid)
     plonds = Vector{Float64}(undef, 4 * npoints)
     platds = similar(plonds)
     return _initial_particle_positions!(plonds, platds, grid_or_spectral_grid, dist_km; radius)
 end
 
-function _perturb_positions!(particles, londs, latds, dist_km; radius=Re)
+function _perturb_positions!(particles, londs, latds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     npoints, delta_lat = _check_stencil_centers(londs, latds, dist_km; radius)
     expected_length = 4 * npoints
     length(particles) == expected_length ||

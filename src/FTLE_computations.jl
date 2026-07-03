@@ -1,4 +1,4 @@
-function displacement_gradient_matrix_central!(B, plonds, platds, dist_km; radius=Re)
+function displacement_gradient_matrix_central!(B, plonds, platds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     _check_dist_km(dist_km)
     radius = _check_radius(radius)
     length(plonds) == length(platds) ||
@@ -24,7 +24,7 @@ function displacement_gradient_matrix_central!(B, plonds, platds, dist_km; radiu
     return B
 end
 
-function displacement_gradient_matrix_central(plonds, platds, dist_km; radius=Re)
+function displacement_gradient_matrix_central(plonds, platds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     B = Array{Float64}(undef, 2, 2, length(plonds) ÷ 4)
     return displacement_gradient_matrix_central!(B, plonds, platds, dist_km; radius)
 end
@@ -88,7 +88,7 @@ function _FTLE_from_particles!(
     grid_or_npoints,
     dist_km;
     time_indices=Colon(),
-    radius=Re,
+    radius=SpeedyWeather.DEFAULT_RADIUS,
 )
     _check_dist_km(dist_km)
     radius = _check_radius(radius)
@@ -127,7 +127,7 @@ function _FTLE_from_particles(
     grid_or_npoints,
     dist_km;
     time_indices=Colon(),
-    radius=Re,
+    radius=SpeedyWeather.DEFAULT_RADIUS,
 )
     npoints = _grid_npoints(grid_or_npoints)
     _check_time_hours(time_hours)
@@ -155,7 +155,7 @@ function _particle_file_time_hours(ds)
     end
 end
 
-function _validate_particle_file_metadata(ds, dist_km; radius=Re)
+function _validate_particle_file_metadata(ds, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     if haskey(ds.attrib, _DIST_KM_ATTRIBUTE)
         file_dist_km = ds.attrib[_DIST_KM_ATTRIBUTE]
         file_dist_km isa Real ||
@@ -189,7 +189,7 @@ function _initial_position_tolerance(expected_plonds, expected_platds)
     return max(1.2e-2, 0.05 * max_offset)
 end
 
-function _validate_initial_positions(ds, grid_or_spectral_grid, dist_km; radius=Re)
+function _validate_initial_positions(ds, grid_or_spectral_grid, dist_km; radius=SpeedyWeather.DEFAULT_RADIUS)
     grid_or_spectral_grid isa Integer &&
         throw(ArgumentError("initial position validation needs a grid; pass validate_initial_positions=false for npoint-only files"))
 
@@ -208,7 +208,13 @@ function _validate_initial_positions(ds, grid_or_spectral_grid, dist_km; radius=
     return nothing
 end
 
-function _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions, radius=Re)
+function _validate_particle_file(
+    ds,
+    grid_or_spectral_grid,
+    dist_km;
+    validate_initial_positions,
+    radius=SpeedyWeather.DEFAULT_RADIUS,
+)
     haskey(ds.dim, "particle") || throw(ArgumentError("particle file must contain a particle dimension"))
     haskey(ds.dim, "time") || throw(ArgumentError("particle file must contain a time dimension"))
     for name in ("time", "lon", "lat")
@@ -237,7 +243,7 @@ function _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_in
     return nothing
 end
 
-function _write_particle_file_metadata(path; dist_km, radius=Re)
+function _write_particle_file_metadata(path; dist_km, radius=SpeedyWeather.DEFAULT_RADIUS)
     ds = NCDataset(path, "a")
     try
         ds.attrib[_DIST_KM_ATTRIBUTE] = Float64(dist_km)
@@ -257,7 +263,7 @@ function _FTLE_from_particle_file!(
     dist_km;
     time_indices=Colon(),
     validate_initial_positions=true,
-    radius=Re,
+    radius=SpeedyWeather.DEFAULT_RADIUS,
 )
     radius = _check_radius(radius)
     ds = NCDataset(path, "r")
@@ -278,7 +284,7 @@ function _FTLE_from_particle_file(
     dist_km;
     time_indices=Colon(),
     validate_initial_positions=true,
-    radius=Re,
+    radius=SpeedyWeather.DEFAULT_RADIUS,
 )
     radius = _check_radius(radius)
     ds = NCDataset(path, "r")

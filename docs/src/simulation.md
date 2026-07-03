@@ -55,10 +55,9 @@ end
 (backward_ftle isa Field, backward_time_hours)
 ```
 
-`FTLE` uses `radius = SpeedyWeatherFTLE.Re` by default, where `Re` is inherited
-from SpeedyWeather's default planet radius. Pass `radius = ...` in metres to use
-a different spherical distance scale for both the internal SpeedyWeather model
-and the FTLE latitude/longitude conversions.
+`FTLE` uses `radius = SpeedyWeather.DEFAULT_RADIUS` by default. Pass
+`radius = ...` in metres to use a different spherical distance scale for both
+the internal SpeedyWeather model and the FTLE latitude/longitude conversions.
 
 Dynamic workflows are out of scope for SpeedyWeatherFTLE. The internal
 SpeedyWeather simulation used by [`FTLE`](@ref) is always initialized with

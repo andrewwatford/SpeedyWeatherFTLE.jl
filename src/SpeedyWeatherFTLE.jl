@@ -5,7 +5,6 @@ using NCDatasets
 using RingGrids
 using SpeedyWeather
 
-export Re
 export FTLE
 export shared_colorrange
 export stretching_factor, stretching_factor!
@@ -16,15 +15,6 @@ export globe_plot
 export set_slider_time!
 export slider_plot
 export surface_plot
-
-"""
-    Re
-
-Default planet radius used by SpeedyWeatherFTLE, in metres.
-
-The value is inherited from SpeedyWeather.
-"""
-const Re = SpeedyWeather.DEFAULT_RADIUS
 
 const _MAX_STENCIL_DEGREES = 20.0
 const _PARTICLE_FILE_METADATA_PREFIX = "SpeedyWeatherFTLE_"
