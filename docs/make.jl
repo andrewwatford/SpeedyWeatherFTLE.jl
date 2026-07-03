@@ -23,6 +23,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/andrewwatford/SpeedyWeatherFTLE.jl",
+    repo = "github.com/andrewwatford/SpeedyWeatherFTLE.jl.git",
     devbranch = "main",
+    versions = nothing,
 )

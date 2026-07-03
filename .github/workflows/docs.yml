@@ -3,11 +3,14 @@ name: Documentation
 on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ]
   pull_request:
+  workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
+  pull-requests: read
+  statuses: write
   
 # Add this section to prevent concurrent builds
 concurrency: 
@@ -24,7 +27,7 @@ jobs:
         with:
           version: '1'
 
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
 
       - name: Install docs dependencies
         shell: bash
