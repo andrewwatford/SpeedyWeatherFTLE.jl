@@ -88,17 +88,17 @@ function _nearest_time_index(times, time_hour)
     return first(eachindex(times)) + argmin(distances) - 1
 end
 
-function _resolve_time_index(ftle::AbstractMatrix; time_index, time_hour, time_hours)
+function _resolve_time_index(values; time_index, time_hour, time_hours)
     time_index !== nothing && time_hour !== nothing &&
         throw(ArgumentError("pass either time_index or time_hour, not both"))
     if time_hour !== nothing
         time_hours === nothing && throw(ArgumentError("time_hour requires time_hours"))
-        length(time_hours) == size(ftle, 2) ||
+        length(time_hours) == size(values, 2) ||
             throw(DimensionMismatch("time_hours must contain one value per FTLE column"))
         time_index = _nearest_time_index(time_hours, time_hour)
     elseif time_index === nothing
-        time_index = size(ftle, 2)
+        time_index = size(values, 2)
     end
-    _check_time_index(time_index, size(ftle, 2))
+    _check_time_index(time_index, size(values, 2))
     return time_index
 end

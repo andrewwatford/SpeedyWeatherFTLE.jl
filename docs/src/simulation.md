@@ -2,76 +2,59 @@
 
 The main entry point is [`FTLE`](@ref). It accepts zonal and meridional
 `RingGrids.Field` values, runs frozen prescribed-flow particle advection
-internally, and post-processes the saved deformation into FTLE values.
+internally, and post-processes the saved deformation into FTLE fields.
 
-```julia
-using Random
+```@example simulation
+using Logging
 using RingGrids
 using SpeedyWeatherFTLE
 
-Random.seed!(42)
+grid = FullGaussianGrid(4)
+u = 0 .* rand(grid)
+v = 0 .* rand(grid)
 
-grid = FullGaussianGrid(8)
-u = 25 .* rand(grid)
-v = 25 .* rand(grid)
+ftle, time_hours = with_logger(NullLogger()) do
+    FTLE(
+        u,
+        v;
+        simulation_days = 0.25,
+        rint_hours = 3,
+        particle_advection_every_n_time_steps = 1,
+        time_indices = :last,
+    )
+end
 
-result = FTLE(
-    u,
-    v;
-    simulation_days = 1,
-    rint_hours = 6,
-    particle_advection_every_n_time_steps = 1,
-    return_result = true,
-    time_indices = :nonzero,
-)
+(ftle isa Field, size(ftle), time_hours)
 ```
 
-`result` is an [`FTLEResult`](@ref):
+`ftle` is a `RingGrids.Field` time series. Use ordinary field indexing to pick
+one saved horizon:
 
-```julia
-result.ftle          # matrix with dimensions (grid point, selected time)
-result.spectral_grid # SpeedyWeather SpectralGrid used for the run
-result.time_hours    # selected integration horizons
-result.direction     # :forward or :backward
-```
+```@example simulation
+final_field = ftle[:, end]
+stretch = stretching_factor(ftle, time_hours)
 
-Common follow-up operations:
-
-```julia
-final_values = final_ftle(result)
-final_field = final_ftle_field(result)
-field_at_12h = ftle_field(result; time_hour = 12)
-stretch = stretching_factor(result)
+(final_field isa Field, stretch isa Field)
 ```
 
 For backward-time FTLE, keep the same function and set `backwards = true`:
 
-```julia
-backward = FTLE(
-    u,
-    v;
-    backwards = true,
-    simulation_days = 1,
-    rint_hours = 6,
-    particle_advection_every_n_time_steps = 1,
-    return_result = true,
-    time_indices = :last,
-)
+```@example simulation
+backward_ftle, backward_time_hours = with_logger(NullLogger()) do
+    FTLE(
+        u,
+        v;
+        backwards = true,
+        simulation_days = 0.25,
+        rint_hours = 3,
+        particle_advection_every_n_time_steps = 1,
+        time_indices = :last,
+    )
+end
+
+(backward_ftle isa Field, backward_time_hours)
 ```
 
-By default, [`FTLE`](@ref) returns `(ftle, spectral_grid, time_hours)` instead
-of an [`FTLEResult`](@ref):
-
-```julia
-ftle, spectral_grid, time_hours = FTLE(
-    u,
-    v;
-    simulation_days = 1,
-    rint_hours = 6,
-    time_indices = :last,
-)
-```
-
-This wrapper is intentionally for frozen supplied velocity fields. Pass
-`dynamics = false` or leave it at the default. Dynamic model initialization
-belongs in a dedicated SpeedyWeather simulation workflow.
+Dynamic workflows are out of scope for SpeedyWeatherFTLE. The internal
+SpeedyWeather simulation used by [`FTLE`](@ref) is always initialized with
+`dynamics = false`.

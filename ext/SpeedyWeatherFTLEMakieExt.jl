@@ -5,13 +5,11 @@ using RingGrids: Field, interpolate
 using SpeedyWeatherFTLE
 
 import SpeedyWeatherFTLE:
-    FTLEResult,
     SliderPlotHandle,
     animate_slider_plot,
-    ftle_colorrange,
-    ftle_field,
     globe_plot,
     set_slider_time!,
+    shared_colorrange,
     slider_plot,
     surface_plot
 
@@ -38,9 +36,9 @@ function _normalize_slider_label_kwargs(kwargs)
 end
 
 function _resolve_colorrange(data, colorrange)
-    colorrange === nothing && return ftle_colorrange(data)
-    colorrange === :auto && return ftle_colorrange(data)
-    colorrange === :symmetric && return ftle_colorrange(data; symmetric=true)
+    colorrange === nothing && return shared_colorrange(data)
+    colorrange === :auto && return shared_colorrange(data)
+    colorrange === :symmetric && return shared_colorrange(data; symmetric=true)
     return colorrange
 end
 
@@ -59,24 +57,36 @@ function _plot_tuple(handle::SliderPlotHandle)
     return handle.fig, handle.ax, handle.sp, handle.cb
 end
 
+function _selected_field(field::Field; time_index=nothing, time_hour=nothing, time_hours=nothing)
+    if ndims(field) == 1
+        time_hour === nothing || throw(ArgumentError("time_hour requires a time-dependent field"))
+        (time_index === nothing || time_index == 1) || throw(BoundsError(field, (:, time_index)))
+        return field
+    end
+
+    index = SWFTLE._resolve_time_index(field; time_index, time_hour, time_hours)
+    return field[:, index]
+end
+
 """
     surface_plot(field::RingGrids.Field; kwargs...)
-    surface_plot(FTLE_grid::AbstractVector, grid_or_spectral_grid; kwargs...)
-    surface_plot(FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid; time_index = nothing, time_hours = nothing, time_hour = nothing, kwargs...)
-    surface_plot(result::FTLEResult; time_index = nothing, time_hour = nothing, kwargs...)
+    surface_plot(field_time::RingGrids.Field; time_index = nothing, time_hours = nothing, time_hour = nothing, kwargs...)
 
 Plot one field or selected FTLE horizon on a geographic Makie axis.
 """
 function surface_plot(
     field::Field;
+    time_index::Union{Nothing,Integer}=nothing,
+    time_hour::Union{Nothing,Real}=nothing,
+    time_hours=nothing,
     lon::AbstractVector=Vector(-180:180),
     lat::AbstractVector=Vector(-90:90),
     shading=Makie.NoShading,
     title=nothing,
     colormap=:viridis,
-    colorrange=nothing,
+    colorrange=:auto,
     colorbar::Bool=true,
-    label=nothing,
+    label=SWFTLE._FTLE_COLORBAR_LABEL,
     coastlines::Bool=true,
     coastline_color=:black,
     coastline_linewidth=1,
@@ -86,6 +96,7 @@ function surface_plot(
     colorbar_kwargs=NamedTuple(),
     coastline_kwargs=NamedTuple(),
 )
+    field = _selected_field(field; time_index, time_hour, time_hours)
     lon_vec, lat_vec = _lonlat_vectors(lon, lat)
     field_data = interpolate(lon_vec, lat_vec, field)
 
@@ -94,7 +105,7 @@ function surface_plot(
     ax = GeoMakie.GeoAxis(fig[1, 1]; axis_attributes...)
 
     surface_attributes = merge((; shading, colormap), surface_kwargs)
-    colorrange !== nothing && (surface_attributes = merge(surface_attributes, (; colorrange)))
+    colorrange !== nothing && (surface_attributes = merge(surface_attributes, (; colorrange=_resolve_colorrange(field, colorrange))))
     sp = Makie.surface!(ax, lon_vec, lat_vec, field_data; surface_attributes...)
 
     if coastlines
@@ -112,30 +123,6 @@ function surface_plot(
     end
 
     return fig, ax, sp, cb
-end
-
-function surface_plot(ftle::AbstractVector, grid_or_spectral_grid; kwargs...)
-    plot_kwargs = (; kwargs...)
-    :label in keys(plot_kwargs) || (plot_kwargs = merge((; label=SWFTLE._FTLE_COLORBAR_LABEL), plot_kwargs))
-    :colorrange in keys(plot_kwargs) || (plot_kwargs = merge((; colorrange=ftle_colorrange(ftle)), plot_kwargs))
-    return surface_plot(ftle_field(ftle, grid_or_spectral_grid); plot_kwargs...)
-end
-
-function surface_plot(
-    ftle::AbstractMatrix,
-    grid_or_spectral_grid;
-    time_index::Union{Nothing,Integer}=nothing,
-    time_hour::Union{Nothing,Real}=nothing,
-    time_hours=nothing,
-    kwargs...
-)
-    index = SWFTLE._resolve_time_index(ftle; time_index, time_hour, time_hours)
-    return surface_plot(view(ftle, :, index), grid_or_spectral_grid; kwargs...)
-end
-
-function surface_plot(result::FTLEResult; time_index::Union{Nothing,Integer}=nothing, time_hour::Union{Nothing,Real}=nothing, kwargs...)
-    spectral_grid = SWFTLE._require_spectral_grid(result, "surface_plot")
-    return surface_plot(result.ftle, spectral_grid; time_index, time_hour, time_hours=result.time_hours, kwargs...)
 end
 
 function _slider_plot_handle(
@@ -212,26 +199,20 @@ end
 
 """
     slider_plot(times, field_ts::RingGrids.Field; kwargs...)
-    slider_plot(times, FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid; start_index = nothing, kwargs...)
-    slider_plot(result::FTLEResult; kwargs...)
 
 Plot a time-dependent field or FTLE integration horizons with a Makie slider.
 """
-function slider_plot(times::AbstractVector{<:Real}, field_ts::Field; return_handle::Bool=false, kwargs...)
-    handle = _slider_plot_handle(times, field_ts; _normalize_slider_label_kwargs(kwargs)...)
-    return return_handle ? handle : _plot_tuple(handle)
-end
-
 function slider_plot(
     times::AbstractVector{<:Real},
-    ftle::AbstractMatrix,
-    grid_or_spectral_grid;
+    field_ts::Field;
     start_index=nothing,
     return_handle::Bool=false,
     kwargs...
 )
-    length(times) == size(ftle, 2) ||
-        throw(DimensionMismatch("times has length $(length(times)), but FTLE data has $(size(ftle, 2)) columns"))
+    ndims(field_ts) == 2 ||
+        throw(DimensionMismatch("slider_plot needs a time-dependent field with dimensions (grid point, time)"))
+    length(times) == size(field_ts, 2) ||
+        throw(DimensionMismatch("times has length $(length(times)), but field_ts has $(size(field_ts, 2)) columns"))
 
     if start_index === nothing
         start_index = findfirst(t -> isfinite(t) && !iszero(t), times)
@@ -241,18 +222,13 @@ function slider_plot(
     firstindex(times) <= start_index <= lastindex(times) || throw(BoundsError(times, start_index))
 
     time_indices = start_index:lastindex(times)
-    field_ts = ftle_field(view(ftle, :, time_indices), grid_or_spectral_grid)
     plot_kwargs = _normalize_slider_label_kwargs(kwargs)
     :colorbar_label in keys(plot_kwargs) || (plot_kwargs = merge((; colorbar_label=SWFTLE._FTLE_COLORBAR_LABEL), plot_kwargs))
     :slider_label in keys(plot_kwargs) || (plot_kwargs = merge((; slider_label=SWFTLE._FTLE_SLIDER_LABEL), plot_kwargs))
     :time_label_format in keys(plot_kwargs) || (plot_kwargs = merge((; time_label_format=t -> "Integration time = $(t) h"), plot_kwargs))
 
-    return slider_plot(times[time_indices], field_ts; return_handle, plot_kwargs...)
-end
-
-function slider_plot(result::FTLEResult; kwargs...)
-    spectral_grid = SWFTLE._require_spectral_grid(result, "slider_plot")
-    return slider_plot(result.time_hours, result.ftle, spectral_grid; kwargs...)
+    handle = _slider_plot_handle(times[time_indices], field_ts[:, time_indices]; plot_kwargs...)
+    return return_handle ? handle : _plot_tuple(handle)
 end
 
 function set_slider_time!(handle::SliderPlotHandle, time_hour::Real)
@@ -271,22 +247,6 @@ function animate_slider_plot(
     path::AbstractString,
     times::AbstractVector{<:Real},
     field_ts::Field;
-    framerate::Real=10,
-    frames=nothing,
-    record_kwargs=NamedTuple(),
-    record_function=Makie.record,
-    kwargs...
-)
-    handle = slider_plot(times, field_ts; return_handle=true, kwargs...)
-    frame_indices = frames === nothing ? eachindex(handle.times) : frames
-    return _record_slider_animation!(record_function, path, handle, frame_indices; framerate, record_kwargs)
-end
-
-function animate_slider_plot(
-    path::AbstractString,
-    times::AbstractVector{<:Real},
-    ftle::AbstractMatrix,
-    grid_or_spectral_grid;
     start_index=nothing,
     framerate::Real=10,
     frames=nothing,
@@ -294,34 +254,30 @@ function animate_slider_plot(
     record_function=Makie.record,
     kwargs...
 )
-    handle = slider_plot(times, ftle, grid_or_spectral_grid; start_index, return_handle=true, kwargs...)
+    handle = slider_plot(times, field_ts; start_index, return_handle=true, kwargs...)
     frame_indices = frames === nothing ? eachindex(handle.times) : frames
     return _record_slider_animation!(record_function, path, handle, frame_indices; framerate, record_kwargs)
 end
 
-function animate_slider_plot(path::AbstractString, result::FTLEResult; kwargs...)
-    spectral_grid = SWFTLE._require_spectral_grid(result, "animate_slider_plot")
-    return animate_slider_plot(path, result.time_hours, result.ftle, spectral_grid; kwargs...)
-end
-
 """
     globe_plot(field::RingGrids.Field; kwargs...)
-    globe_plot(FTLE_grid::AbstractVector, grid_or_spectral_grid; kwargs...)
-    globe_plot(FTLE_grid_time::AbstractMatrix, grid_or_spectral_grid; time_index = nothing, time_hours = nothing, time_hour = nothing, kwargs...)
-    globe_plot(result::FTLEResult; time_index = nothing, time_hour = nothing, kwargs...)
+    globe_plot(field_time::RingGrids.Field; time_index = nothing, time_hours = nothing, time_hour = nothing, kwargs...)
 
 Plot one field or selected FTLE horizon on a GeoMakie `GlobeAxis`.
 """
 function globe_plot(
     field::Field;
+    time_index::Union{Nothing,Integer}=nothing,
+    time_hour::Union{Nothing,Real}=nothing,
+    time_hours=nothing,
     lon::AbstractVector=Vector(-180:180),
     lat::AbstractVector=Vector(-90:90),
     shading=Makie.NoShading,
     title=nothing,
     colormap=:viridis,
-    colorrange=nothing,
+    colorrange=:auto,
     colorbar::Bool=true,
-    label=nothing,
+    label=SWFTLE._FTLE_COLORBAR_LABEL,
     coastlines::Bool=true,
     coastline_color=:black,
     coastline_linewidth=1,
@@ -336,6 +292,7 @@ function globe_plot(
     colorbar_kwargs=NamedTuple(),
     coastline_kwargs=NamedTuple(),
 )
+    field = _selected_field(field; time_index, time_hour, time_hours)
     field_data = _field_on_lonlat(field, lon, lat)
     altitude = zeros(Float32, length(lon), length(lat))
 
@@ -344,7 +301,7 @@ function globe_plot(
     ax = GeoMakie.GlobeAxis(fig[1, 1]; axis_attributes...)
 
     surface_attributes = merge((; color=field_data, shading, colormap, zlevel), surface_kwargs)
-    colorrange !== nothing && (surface_attributes = merge(surface_attributes, (; colorrange)))
+    colorrange !== nothing && (surface_attributes = merge(surface_attributes, (; colorrange=_resolve_colorrange(field, colorrange))))
     sp = Makie.surface!(ax, lon, lat, altitude; surface_attributes...)
 
     if coastlines
@@ -365,30 +322,6 @@ function globe_plot(
     end
 
     return fig, ax, sp, cb
-end
-
-function globe_plot(ftle::AbstractVector, grid_or_spectral_grid; kwargs...)
-    plot_kwargs = (; kwargs...)
-    :label in keys(plot_kwargs) || (plot_kwargs = merge((; label=SWFTLE._FTLE_COLORBAR_LABEL), plot_kwargs))
-    :colorrange in keys(plot_kwargs) || (plot_kwargs = merge((; colorrange=ftle_colorrange(ftle)), plot_kwargs))
-    return globe_plot(ftle_field(ftle, grid_or_spectral_grid); plot_kwargs...)
-end
-
-function globe_plot(
-    ftle::AbstractMatrix,
-    grid_or_spectral_grid;
-    time_index::Union{Nothing,Integer}=nothing,
-    time_hour::Union{Nothing,Real}=nothing,
-    time_hours=nothing,
-    kwargs...
-)
-    index = SWFTLE._resolve_time_index(ftle; time_index, time_hour, time_hours)
-    return globe_plot(view(ftle, :, index), grid_or_spectral_grid; kwargs...)
-end
-
-function globe_plot(result::FTLEResult; time_index::Union{Nothing,Integer}=nothing, time_hour::Union{Nothing,Real}=nothing, kwargs...)
-    spectral_grid = SWFTLE._require_spectral_grid(result, "globe_plot")
-    return globe_plot(result.ftle, spectral_grid; time_index, time_hour, time_hours=result.time_hours, kwargs...)
 end
 
 end

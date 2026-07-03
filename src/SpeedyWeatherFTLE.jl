@@ -5,12 +5,9 @@ using NCDatasets
 using RingGrids
 using SpeedyWeather
 
-export FTLEResult
 export Re
-export final_ftle, final_ftle_field
-export ftle_colorrange
-export ftle_field
 export FTLE
+export shared_colorrange
 export stretching_factor, stretching_factor!
 
 export SliderPlotHandle
@@ -36,7 +33,6 @@ const _PARTICLE_ORDER = "east,west,north,south"
 include("utilities.jl")
 include("particles.jl")
 include("FTLE_computations.jl")
-include("FTLE_result.jl")
 include("FTLE_diagnostics.jl")
 include("FTLE.jl")
 include("plotting_api.jl")

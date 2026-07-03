@@ -2,11 +2,7 @@
 
 ```@docs
 FTLE
-FTLEResult
-final_ftle
-final_ftle_field
-ftle_field
-ftle_colorrange
+shared_colorrange
 stretching_factor
 stretching_factor!
 SliderPlotHandle

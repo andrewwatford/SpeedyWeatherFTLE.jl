@@ -16,13 +16,18 @@ end
 
 """
     stretching_factor(ftle, time_hours)
-    stretching_factor(result::FTLEResult)
 
 Convert FTLE values to finite-time stretching factors with
 `exp.(ftle .* abs.(time))`.
 """
 function stretching_factor(ftle::AbstractVector, time_hour::Real)
     return stretching_factor!(similar(ftle, Float64), ftle, time_hour)
+end
+
+function stretching_factor(ftle::Field, time_hour::Real)
+    stretch = Vector{Float64}(undef, length(ftle))
+    stretching_factor!(stretch, ftle, time_hour)
+    return Field(stretch, ftle.grid)
 end
 
 function stretching_factor!(stretch, ftle::AbstractMatrix, time_hours::AbstractVector{<:Real})
@@ -44,4 +49,8 @@ function stretching_factor(ftle::AbstractMatrix, time_hours::AbstractVector{<:Re
     return stretching_factor!(similar(ftle, Float64), ftle, time_hours)
 end
 
-stretching_factor(result::FTLEResult) = stretching_factor(result.ftle, result.time_hours)
+function stretching_factor(ftle::Field, time_hours::AbstractVector{<:Real})
+    stretch = Matrix{Float64}(undef, size(ftle))
+    stretching_factor!(stretch, ftle, time_hours)
+    return Field(stretch, ftle.grid)
+end

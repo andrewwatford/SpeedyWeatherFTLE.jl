@@ -26,10 +26,30 @@ function _spectral_grid_for(field::Field)
 end
 
 """
-    FTLE(u::Field, v::Field; kwargs...)
+    FTLE(u::RingGrids.Field, v::RingGrids.Field; kwargs...)
 
-Compute FTLE for frozen zonal and meridional velocity fields, then return
-`(ftle, spectral_grid, time_hours)`.
+Compute finite-time Lyapunov exponent fields for a frozen prescribed flow.
+
+`u` and `v` are zonal and meridional velocity fields on the same
+`RingGrids` grid.
+
+Keywords:
+
+- `simulation_days = 10`: integration length in days.
+- `dist_km = 10`: local stencil radius used internally for the deformation
+  estimate.
+- `backwards = false`: set `true` for backward-time FTLE.
+- `rint_hours = 3`: output interval, in hours.
+- `particle_advection_every_n_time_steps = 6`: cadence for the internal
+  particle advection callback.
+- `particle_tracker_keepbits = 15`: precision retained by SpeedyWeather's
+  internal particle tracker.
+- `time_indices = :`: saved horizons to return; use `:nonzero`, `:last`, an
+  integer, or integer indices for common selections.
+
+Returns `(ftle, time_hours)`, where `ftle` is a `RingGrids.Field` with
+dimensions `(grid point, selected time)` and `time_hours` contains the selected
+integration horizons in hours.
 """
 function FTLE(
     u::Field,
@@ -37,16 +57,13 @@ function FTLE(
     simulation_days=10,
     dist_km=10,
     backwards=false,
-    dynamics=false,
     rint_hours=3,
     particle_advection_every_n_time_steps=6,
     particle_tracker_keepbits=15,
-    return_result=false,
     time_indices=Colon(),
 )
     u.grid == v.grid || throw(ArgumentError("u and v must use the same grid"))
     dist_km = _check_dist_km(dist_km)
-    dynamics && throw(ArgumentError("FTLE supports frozen prescribed fields only; pass dynamics=false"))
     particle_advection_every_n_time_steps >= 1 ||
         throw(ArgumentError("particle_advection_every_n_time_steps must be at least 1"))
     rint_hours = _check_positive(rint_hours, "rint_hours")
@@ -86,19 +103,7 @@ function FTLE(
     try
         _write_particle_file_metadata(path; dist_km)
         ftle, time_hours = _FTLE_from_particle_file(path, spectral_grid, dist_km; time_indices)
-        if return_result
-            return FTLEResult(
-                ftle,
-                spectral_grid,
-                time_hours;
-                dist_km,
-                backwards,
-                dynamics=false,
-                rint_hours,
-            )
-        else
-            return ftle, spectral_grid, time_hours
-        end
+        return Field(ftle, spectral_grid.grid), time_hours
     finally
         rm(path; force=true)
     end

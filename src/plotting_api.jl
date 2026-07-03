@@ -5,15 +5,13 @@ function _plot_values(data)
     return data
 end
 
-_plot_values(result::FTLEResult) = result.ftle
-
 """
-    ftle_colorrange(data...; symmetric = false, pad = 0)
+    shared_colorrange(data...; symmetric = false, pad = 0)
 
-Return finite color limits spanning one or more FTLE arrays, fields, or
-[`FTLEResult`](@ref) objects.
+Return finite color limits spanning one or more arrays or `RingGrids.Field`
+objects.
 """
-function ftle_colorrange(data...; symmetric::Bool=false, pad::Real=0)
+function shared_colorrange(data...; symmetric::Bool=false, pad::Real=0)
     pad >= 0 || throw(ArgumentError("pad must be non-negative"))
 
     min_val = Inf
@@ -73,17 +71,24 @@ struct SliderPlotHandle{F, A, S, C, G, L, D, T}
 end
 
 """
-    surface_plot(args...; kwargs...)
+    surface_plot(field::RingGrids.Field; kwargs...)
+    surface_plot(field_ts::RingGrids.Field; time_index = nothing, time_hour = nothing, time_hours = nothing, kwargs...)
 
-Plot a `RingGrids.Field`, FTLE vector/matrix, or [`FTLEResult`](@ref) on a
-geographic Makie axis. Load GeoMakie plus a Makie backend before calling.
+Plot one field or a selected column from a time-dependent `RingGrids.Field` on
+a geographic Makie axis. For time-dependent fields, select a horizon with
+`time_index` or nearest `time_hour`; by default the final column is shown.
+
+Load GeoMakie plus a Makie backend before calling.
 """
 surface_plot(args...; kwargs...) = _plotting_extension_error("surface_plot")
 
 """
-    slider_plot(args...; kwargs...)
+    slider_plot(time_hours, field_ts::RingGrids.Field; start_index = nothing, return_handle = false, kwargs...)
 
-Plot time-dependent fields or FTLE integration horizons with a Makie slider.
+Plot a time-dependent `RingGrids.Field` with a Makie slider. The field must have
+dimensions `(grid point, time)` and `time_hours` must contain one value per
+column. By default the slider starts at the first finite nonzero time.
+
 Load GeoMakie plus a Makie backend before calling.
 """
 slider_plot(args...; kwargs...) = _plotting_extension_error("slider_plot")
@@ -96,16 +101,18 @@ Move a [`SliderPlotHandle`](@ref) to the saved time nearest `time_hour`.
 set_slider_time!(args...; kwargs...) = _plotting_extension_error("set_slider_time!")
 
 """
-    animate_slider_plot(path, args...; kwargs...)
+    animate_slider_plot(path, time_hours, field_ts::RingGrids.Field; start_index = nothing, framerate = 10, kwargs...)
 
 Record an animation by advancing the same slider used by [`slider_plot`](@ref).
 """
 animate_slider_plot(args...; kwargs...) = _plotting_extension_error("animate_slider_plot")
 
 """
-    globe_plot(args...; kwargs...)
+    globe_plot(field::RingGrids.Field; kwargs...)
+    globe_plot(field_ts::RingGrids.Field; time_index = nothing, time_hour = nothing, time_hours = nothing, kwargs...)
 
-Plot a `RingGrids.Field`, FTLE vector/matrix, or [`FTLEResult`](@ref) on a
-GeoMakie `GlobeAxis`.
+Plot one field or a selected column from a time-dependent `RingGrids.Field` on a
+GeoMakie `GlobeAxis`. For time-dependent fields, select a horizon with
+`time_index` or nearest `time_hour`; by default the final column is shown.
 """
 globe_plot(args...; kwargs...) = _plotting_extension_error("globe_plot")
