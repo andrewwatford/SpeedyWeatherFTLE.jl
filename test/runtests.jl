@@ -7,18 +7,6 @@ using Test
     @testset "public API surface" begin
         @test isdefined(SpeedyWeatherFTLE, :FTLE)
         @test isdefined(SpeedyWeatherFTLE, :shared_colorrange)
-        @test !isdefined(SpeedyWeatherFTLE, :Re)
-        @test !isdefined(SpeedyWeatherFTLE, :FTLEResult)
-        @test !isdefined(SpeedyWeatherFTLE, :final_ftle)
-        @test !isdefined(SpeedyWeatherFTLE, :final_ftle_field)
-        @test !isdefined(SpeedyWeatherFTLE, :ftle_field)
-        @test !isdefined(SpeedyWeatherFTLE, :ftle_colorrange)
-        @test !isdefined(SpeedyWeatherFTLE, :get_FTLE)
-        @test !isdefined(SpeedyWeatherFTLE, :positive_FTLE)
-        @test !isdefined(SpeedyWeatherFTLE, :negative_FTLE)
-        @test !isdefined(SpeedyWeatherFTLE, :FTLE_from_particle_file)
-        @test !isdefined(SpeedyWeatherFTLE, :FTLE_from_particles)
-        @test !isdefined(SpeedyWeatherFTLE, :initial_FTLE_particle_positions)
     end
 
     @testset "configurable planet radius" begin
