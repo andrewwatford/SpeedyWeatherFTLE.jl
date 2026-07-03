@@ -1,15 +1,15 @@
 # SpeedyWeatherFTLE
 
-SpeedyWeatherFTLE computes finite-time Lyapunov exponents (FTLEs) from
-SpeedyWeather particle trajectories. It deliberately stays narrow: create the
-FTLE particle stencil, post-process tracked particles, and return arrays or
-`RingGrids.Field` values that downstream analysis and plotting code can use.
+SpeedyWeatherFTLE computes finite-time Lyapunov exponent (FTLE) fields from
+SpeedyWeather flow fields. Users work with flow fields and FTLE results; the
+particle advection used to estimate the deformation is an implementation
+detail.
 
 ## Install
 
 SpeedyWeatherFTLE requires Julia 1.12 and the `mk/lyapunov2` SpeedyWeather
-source branch because that branch provides the particle advection API used by
-the package.
+source branch because that branch provides the particle advection API used
+internally.
 
 ```julia
 using Pkg
@@ -25,77 +25,26 @@ Pkg.add([
 Pkg.add(PackageSpec(url = "https://github.com/andrewwatford/SpeedyWeatherFTLE.jl"))
 ```
 
-## Particle Layout
-
-For each FTLE grid point, release four particles in east, west, north, south
-order. [`initial_FTLE_particle_positions`](@ref) creates this layout from
-longitude/latitude vectors, a `RingGrids` grid, or a `SpeedyWeather.SpectralGrid`.
-The longitude and latitude trajectory arrays consumed by
-[`FTLE_from_particles`](@ref) must be shaped `(particle, time)`.
+For plotting:
 
 ```julia
-using SpeedyWeatherFTLE
-
-dist_km = 10.0
-delta = rad2deg(dist_km * 1000 / SpeedyWeatherFTLE.Re)
-
-plonds_time = [
-     delta      2 * delta
-    -delta     -2 * delta
-     0.0        0.0
-     0.0        0.0
-]
-
-platds_time = [
-     0.0        0.0
-     0.0        0.0
-     delta      delta
-    -delta     -delta
-]
-
-ftle, time_hours = FTLE_from_particles(
-    plonds_time,
-    platds_time,
-    [1.0, 2.0],
-    1,
-    dist_km;
-    time_indices = :last,
-)
+Pkg.add(["CairoMakie", "GeoMakie"])
 ```
 
-## Particle Files
+Use `CairoMakie` for static figures and documentation-style output. Use
+`GLMakie` instead of `CairoMakie` for interactive local windows.
 
-Use [`FTLE_from_particle_file`](@ref) for saved SpeedyWeather `ParticleTracker`
-NetCDF files. Files must contain `time`, `lon`, and `lat` variables, with
-longitude and latitude dimensions `(particle, time)`.
-
-```julia
-ftle, time_hours = FTLE_from_particle_file(
-    "particles.nc",
-    spectral_grid,
-    10.0;
-    time_indices = :nonzero,
-)
-```
-
-By default, particle files are checked against the expected release stencil.
-Use `validate_initial_positions = false` only for externally validated legacy
-files or synthetic tests.
-
-## Frozen Velocity Fields
-
-For a frozen prescribed velocity field, use [`positive_FTLE`](@ref),
-[`negative_FTLE`](@ref), or [`get_FTLE`](@ref).
+## First Calculation
 
 ```julia
 using RingGrids
 using SpeedyWeatherFTLE
 
 grid = FullGaussianGrid(8)
-u = rand(grid)
-v = rand(grid)
+u = 25 .* rand(grid)
+v = 25 .* rand(grid)
 
-result = positive_FTLE(
+result = FTLE(
     u,
     v;
     simulation_days = 1,
@@ -103,27 +52,34 @@ result = positive_FTLE(
     return_result = true,
     time_indices = :nonzero,
 )
-
-final_ftle(result)
-final_ftle_field(result)
-stretching_factor(result)
 ```
 
-`get_FTLE` intentionally supports frozen supplied velocity fields only. Dynamic
-model initialization belongs in a dedicated SpeedyWeather workflow.
-
-## Development
+`result` is an [`FTLEResult`](@ref). It stores the FTLE matrix, the
+`SpectralGrid`, selected integration horizons in hours, and run metadata.
 
 ```julia
-using Pkg
-Pkg.activate(".")
-Pkg.instantiate()
-Pkg.test()
+final_values = final_ftle(result)
+final_field = final_ftle_field(result)
+field_at_12h = ftle_field(result; time_hour = 12)
+stretch = stretching_factor(result)
 ```
 
-Build these docs with:
+Use `backwards = true` for backward-time FTLE:
 
-```bash
-julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
-julia --project=docs docs/make.jl
+```julia
+backward = FTLE(
+    u,
+    v;
+    backwards = true,
+    simulation_days = 1,
+    rint_hours = 6,
+    return_result = true,
+    time_indices = :last,
+)
 ```
+
+## What To Read Next
+
+- [Running FTLE](@ref) gives the full flow-field workflow and return values.
+- [Plotting](@ref) shows `surface_plot`, `slider_plot`, and `globe_plot` with
+  direct [`FTLEResult`](@ref) dispatch.

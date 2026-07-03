@@ -6,6 +6,8 @@ makedocs(
     modules = [SpeedyWeatherFTLE],
     pages = [
         "Home" => "index.md",
+        "Running FTLE" => "simulation.md",
+        "Plotting" => "plotting.md",
         "API" => "api.md",
     ],
     checkdocs = :exports,

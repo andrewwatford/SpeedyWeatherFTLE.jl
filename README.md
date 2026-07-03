@@ -1,21 +1,26 @@
 # SpeedyWeatherFTLE
 
-SpeedyWeatherFTLE computes finite-time Lyapunov exponents (FTLEs) from
-SpeedyWeather particle trajectories. The package is intentionally small:
+SpeedyWeatherFTLE computes finite-time Lyapunov exponent (FTLE) fields from
+SpeedyWeather flow fields. Internally it uses particle advection, but the public
+API is about the flow: call `FTLE`, get FTLE arrays or an `FTLEResult`, then
+analyze or plot the result.
 
-- build the four-particle east/west/north/south release stencil;
-- compute FTLE from in-memory particle positions;
-- compute FTLE from `ParticleTracker` NetCDF files;
-- optionally run a frozen prescribed-velocity SpeedyWeather experiment;
-- convert FTLE arrays to `RingGrids.Field` for your own plotting code.
+The package stays narrow:
 
-There is no bundled plotting layer.
+- compute forward- or backward-time FTLE with `FTLE(u, v; backwards = ...)`;
+- keep grid, time, and run metadata in `FTLEResult`;
+- convert FTLE arrays to `RingGrids.Field`;
+- compute finite-time stretching factors;
+- plot FTLE results with optional Makie/GeoMakie surface, slider, and globe
+  helpers.
+
+The plotting layer is optional. Compute-only users do not load Makie.
 
 ## Installation
 
 Requires Julia 1.12 or newer.
 
-SpeedyWeatherFTLE currently needs particle-tracking APIs from the
+SpeedyWeatherFTLE currently needs particle-advection APIs from the
 `mk/lyapunov2` branch of the SpeedyWeather monorepo:
 
 ```julia
@@ -33,76 +38,23 @@ Pkg.add([
 Pkg.add(PackageSpec(url = "https://github.com/andrewwatford/SpeedyWeatherFTLE.jl"))
 ```
 
-## Particle Trajectories
-
-`FTLE_from_particles` is the smallest workflow. `plonds_time` and `platds_time`
-must be shaped `(particle, time)`, with four particles per grid point in east,
-west, north, south order.
+For plotting, add GeoMakie plus a Makie backend:
 
 ```julia
-using SpeedyWeatherFTLE
-
-dist_km = 10.0
-delta = rad2deg(dist_km * 1000 / SpeedyWeatherFTLE.Re)
-
-plonds_time = [
-     delta      2 * delta
-    -delta     -2 * delta
-     0.0        0.0
-     0.0        0.0
-]
-
-platds_time = [
-     0.0        0.0
-     0.0        0.0
-     delta      delta
-    -delta     -delta
-]
-
-ftle, time_hours = FTLE_from_particles(
-    plonds_time,
-    platds_time,
-    [1.0, 2.0],
-    1,
-    dist_km;
-    time_indices = :last,
-)
+Pkg.add(["CairoMakie", "GeoMakie"])
 ```
 
-Use `initial_FTLE_particle_positions(grid, dist_km)` to create the matching
-release stencil for a `RingGrids` grid or `SpeedyWeather.SpectralGrid`.
-
-## Particle Files
-
-Saved SpeedyWeather particle files can be post-processed without rerunning the
-simulation:
-
-```julia
-ftle, time_hours = FTLE_from_particle_file(
-    "particles.nc",
-    spectral_grid,
-    10.0;
-    time_indices = :nonzero,
-)
-```
-
-The file must contain `time`, `lon`, and `lat` variables with longitude and
-latitude dimensions `(particle, time)`.
-
-## Frozen Fields
-
-For a prescribed frozen velocity field, call `positive_FTLE` or
-`negative_FTLE`:
+## Basic Usage
 
 ```julia
 using RingGrids
 using SpeedyWeatherFTLE
 
 grid = FullGaussianGrid(8)
-u = rand(grid)
-v = rand(grid)
+u = 25 .* rand(grid)
+v = 25 .* rand(grid)
 
-result = positive_FTLE(
+result = FTLE(
     u,
     v;
     simulation_days = 1,
@@ -111,22 +63,60 @@ result = positive_FTLE(
     time_indices = :nonzero,
 )
 
-final = final_ftle(result)
-field = final_ftle_field(result)
+backward = FTLE(
+    u,
+    v;
+    backwards = true,
+    simulation_days = 1,
+    rint_hours = 6,
+    return_result = true,
+    time_indices = :last,
+)
+```
+
+`FTLE` returns `(ftle, spectral_grid, time_hours)` by default. With
+`return_result = true`, it returns an `FTLEResult`.
+
+```julia
+final_values = final_ftle(result)
+final_field = final_ftle_field(result)
+field_at_12h = ftle_field(result; time_hour = 12)
 stretch = stretching_factor(result)
 ```
 
-`get_FTLE(u, v; backwards = true)` is the lower-level form. The wrapper supports
-frozen prescribed fields only; pass `dynamics = false`.
+The supplied-field wrapper supports frozen prescribed flow fields. Leave
+`dynamics = false`, or build a dedicated SpeedyWeather simulation for dynamic
+model workflows.
+
+## Plotting
+
+Load GeoMakie and a backend before using the plotting helpers:
+
+```julia
+using CairoMakie
+using GeoMakie
+using SpeedyWeatherFTLE
+
+CairoMakie.activate!()
+
+fig, ax, sp, cb = surface_plot(result; coastlines = false)
+handle = slider_plot(result; return_handle = true, coastlines = false)
+set_slider_time!(handle, 12)
+fig_globe, ax_globe, sp_globe, cb_globe = globe_plot(result; coastlines = false)
+```
+
+`surface_plot`, `slider_plot`, and `globe_plot` accept `FTLEResult` instances
+directly. `surface_plot` and `globe_plot` also accept FTLE vectors or matrices
+when passed with the corresponding grid.
 
 ## Public API
 
-- `initial_FTLE_particle_positions`, `initial_FTLE_particle_positions!`
-- `FTLE_from_particles`, `FTLE_from_particles!`
-- `FTLE_from_particle_file`, `FTLE_from_particle_file!`
-- `get_FTLE`, `positive_FTLE`, `negative_FTLE`
+- `FTLE`
 - `FTLEResult`, `final_ftle`, `final_ftle_field`, `ftle_field`
 - `stretching_factor`, `stretching_factor!`
+- `surface_plot`, `slider_plot`, `globe_plot`, `animate_slider_plot`
+- `SliderPlotHandle`, `set_slider_time!`, `ftle_colorrange`
+- `Re`
 
 ## Development
 
