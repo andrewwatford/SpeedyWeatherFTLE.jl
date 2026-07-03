@@ -1,40 +1,22 @@
-@inline _wrapped_lon_diff(lond1, lond2) = mod(lond1 - lond2 + 180, 360) - 180
-
 function displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
-    """
-    Compute the displacement gradient matrix given particle positions at a fixed time
-    Uses a central difference scheme to do this, with four points per grid cell
+    _check_dist_km(dist_km)
+    length(plonds) == length(platds) ||
+        throw(DimensionMismatch("plonds and platds must have the same length"))
+    length(plonds) % 4 == 0 ||
+        throw(ArgumentError("particle vectors must contain four particles per grid point"))
 
-    Inputs:
-        plonds: longitudes of particles
-        platds: latitudes of particles
-        dist_km: perturbation in position applied before starting simulation
+    npoints = length(plonds) ÷ 4
+    size(B) == (2, 2, npoints) ||
+        throw(DimensionMismatch("B must have size (2, 2, $npoints)"))
 
-    Outputs:
-        B: (2,2,N) array where N is the number of grid points in the simulation.
-        B[:,:,k] is the displacement gradient matrix for the k'th grid point. 
-    """
-
-    length(plonds) == length(platds) || throw(DimensionMismatch("plonds and platds must have the same length"))
-    length(plonds) % 4 == 0 || throw(ArgumentError("particle position vectors must contain four particles per grid point"))
-
-    Ngpoints = length(plonds) ÷ 4 # Number of grid points
-    size(B) == (2, 2, Ngpoints) || throw(DimensionMismatch("B must have size (2, 2, $Ngpoints)"))
-
-    dfac = Re / (dist_km * 1000) / 2
-
-    @inbounds for i in 1:Ngpoints
-        p = 4i
-
-        # Derivative of x w.r.t. X
+    dfac = Re / (1000 * dist_km) / 2
+    @inbounds for i in 1:npoints
+        p = 4 * i
         B[1, 1, i] = deg2rad(_wrapped_lon_diff(plonds[p - 3], plonds[p - 2])) *
                      cosd((platds[p - 3] + platds[p - 2]) / 2) * dfac
-        # Derivative of y w.r.t. X
         B[2, 1, i] = deg2rad(platds[p - 3] - platds[p - 2]) * dfac
-        # Derivative of x w.r.t. Y
         B[1, 2, i] = deg2rad(_wrapped_lon_diff(plonds[p - 1], plonds[p])) *
                      cosd((platds[p - 1] + platds[p]) / 2) * dfac
-        # Derivative of y w.r.t. Y
         B[2, 2, i] = deg2rad(platds[p - 1] - platds[p]) * dfac
     end
 
@@ -42,147 +24,62 @@ function displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
 end
 
 function displacement_gradient_matrix_central(plonds, platds, dist_km)
-    Ngpoints = length(plonds) ÷ 4 # Number of grid points
-    B = Array{Float64}(undef, 2, 2, Ngpoints)
-    displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
-    return B
+    B = Array{Float64}(undef, 2, 2, length(plonds) ÷ 4)
+    return displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
 end
 
 @inline function _largest_cauchy_green_eigenvalue(a, b, c, d)
-    C11 = a*a + c*c
-    C12 = a*b + c*d
-    C22 = b*b + d*d
-    return (C11 + C22 + sqrt((C11 - C22)^2 + 4C12^2)) / 2
+    c11 = a*a + c*c
+    c12 = a*b + c*d
+    c22 = b*b + d*d
+    return (c11 + c22 + sqrt((c11 - c22)^2 + 4 * c12^2)) / 2
 end
 
-function FTLE_over_grid!(FTLE_grid, B, T)
-    """
-    Compute FTLE over a grid
+function FTLE_over_grid!(ftle, B, time)
+    npoints = size(B, 3)
+    length(ftle) == npoints || throw(DimensionMismatch("ftle must have length $npoints"))
 
-    Inputs:
-        B: displacement gradient matrix
-        T: time after particle release which B corresponds to
-
-    Outputs: 
-        FTLE_grid: FTLE at each grid point. Units are 1 / [T].
-        If T is zero, the FTLE is undefined and NaN is written.
-    """
-
-    Ngpoints = size(B, 3) # Number of grid points
-    length(FTLE_grid) == Ngpoints || throw(DimensionMismatch("FTLE_grid must have length $Ngpoints"))
-
-    if iszero(T)
-        fill!(FTLE_grid, NaN)
-        return FTLE_grid
+    duration = _duration_magnitude(time, "time")
+    if iszero(duration)
+        fill!(ftle, NaN)
+        return ftle
     end
 
-    twoT = 2 * T
-    for k in 1:Ngpoints
-        # Largest eigenvalue of the 2x2 right Cauchy-Green tensor B'B.
-        @inbounds lmax = _largest_cauchy_green_eigenvalue(B[1, 1, k], B[1, 2, k], B[2, 1, k], B[2, 2, k])
-        # FTLE - in units of 1 / [T]
-        @inbounds FTLE_grid[k] = log(lmax) / twoT
+    @inbounds for i in 1:npoints
+        lmax = _largest_cauchy_green_eigenvalue(B[1, 1, i], B[1, 2, i], B[2, 1, i], B[2, 2, i])
+        ftle[i] = log(lmax) / (2 * duration)
     end
 
-    return FTLE_grid
+    return ftle
 end
 
-function FTLE_over_grid(B, T)
-    FTLE_grid = Vector{Float64}(undef, size(B, 3))
-    FTLE_over_grid!(FTLE_grid, B, T)
-    return FTLE_grid
+function FTLE_over_grid(B, time)
+    ftle = Vector{Float64}(undef, size(B, 3))
+    return FTLE_over_grid!(ftle, B, time)
 end
 
-_particle_column(A::Union{NCDatasets.Variable, NCDatasets.CFVariable}, tindex) = A[:, tindex]
-_particle_column(A::AbstractArray, tindex) = view(A, :, tindex)
-_particle_column(A, tindex) = A[:, tindex]
+_particle_column(A::Union{NCDatasets.Variable, NCDatasets.CFVariable}, index) = A[:, index]
+_particle_column(A::AbstractArray, index) = view(A, :, index)
+_particle_column(A, index) = A[:, index]
 
-function _check_time_index(tindex::Integer, n_times)
-    tindex isa Bool &&
-        throw(ArgumentError("time_indices must be integer indices, not Bool values"))
-    1 <= tindex <= n_times || throw(BoundsError(1:n_times, tindex))
+function _check_particle_column(plonds, platds, time_index)
+    length(plonds) == length(platds) ||
+        throw(DimensionMismatch("lon and lat columns at time index $time_index have different lengths"))
+
+    for i in eachindex(plonds, platds)
+        lon = plonds[i]
+        lat = platds[i]
+        (ismissing(lon) || ismissing(lat)) &&
+            throw(ArgumentError("particle positions at time index $time_index contain missing values"))
+        lon isa Real && lat isa Real && isfinite(lon) && isfinite(lat) ||
+            throw(ArgumentError("particle positions at time index $time_index must be finite real values"))
+    end
+
     return nothing
 end
 
-_checked_time_indices(time_indices, time_hours::AbstractVector{<:Real}) =
-    _checked_time_indices(time_indices, length(time_hours), time_hours)
-
-_checked_time_indices(::Colon, n_times, time_hours) = Base.OneTo(n_times)
-
-function _checked_time_indices(time_indices::Symbol, n_times, time_hours)
-    if time_indices === :all
-        return Base.OneTo(n_times)
-    elseif time_indices === :first
-        return (1,)
-    elseif time_indices in (:last, :final)
-        return (n_times,)
-    elseif time_indices in (:nonzero, :positive)
-        return findall(t -> isfinite(t) && t > 0, time_hours)
-    else
-        throw(ArgumentError("unsupported time_indices selector :$time_indices; use :, :all, :first, :last, :final, :nonzero, :positive, an integer index, or integer indices"))
-    end
-end
-
-function _checked_time_indices(tindex::Integer, n_times, time_hours)
-    _check_time_index(tindex, n_times)
-    return (tindex,)
-end
-
-function _checked_time_indices(time_indices::Real, n_times, time_hours)
-    throw(ArgumentError("time_indices must be :, a supported Symbol selector, an integer index, or integer indices"))
-end
-
-function _checked_time_indices(time_indices::AbstractVector{Bool}, n_times, time_hours)
-    length(time_indices) == n_times ||
-        throw(DimensionMismatch("boolean time_indices mask has length $(length(time_indices)), but time_hours has length $n_times"))
-    return findall(time_indices)
-end
-
-function _checked_time_indices(time_indices, n_times, time_hours)
-    for tindex in time_indices
-        tindex isa Integer ||
-            throw(ArgumentError("time_indices must contain only integer indices"))
-        _check_time_index(tindex, n_times)
-    end
-    return time_indices
-end
-
-_selected_time_hours(time_hours, time_indices) = [Float64(time_hours[tindex]) for tindex in time_indices]
-
-"""
-    FTLE_from_particles!(
-        FTLE_grid_time,
-        B,
-        plonds_time,
-        platds_time,
-        time_hours,
-        grid_or_npoints,
-        dist_km;
-        time_indices = :
-    )
-
-Compute FTLE from in-memory particle trajectories, writing into caller-provided
-arrays.
-
-`plonds_time` and `platds_time` must have dimensions `(particle, time)`, with
-four particles per FTLE grid point in east, west, north, south order. `time_hours`
-contains the corresponding sampling times in hours. `grid_or_npoints` may be a
-spatial grid, a `SpectralGrid`, or the number of FTLE grid points. `dist_km` is
-the initial perturbation distance used to release the particles.
-
-`FTLE_grid_time` must have dimensions `(grid point, selected time)`, where the
-selected columns are determined by `time_indices`. `B` is a reusable work array
-with dimensions `(2, 2, grid point)`.
-
-Supported `time_indices` values are `:`, `:all`, `:first`, `:last`, `:final`,
-`:nonzero`, `:positive`, an integer index, integer-index iterables, or a boolean
-mask. Zero-duration samples are filled with `NaN` because FTLE is undefined at
-`t = 0`.
-
-Returns `FTLE_grid_time`.
-"""
-function FTLE_from_particles!(
-    FTLE_grid_time,
+function _FTLE_from_particles!(
+    ftle,
     B,
     plonds_time,
     platds_time,
@@ -191,273 +88,181 @@ function FTLE_from_particles!(
     dist_km;
     time_indices=Colon(),
 )
-    """
-    Compute FTLE from particle trajectories, reusing caller-provided output and work arrays.
-
-    Inputs:
-        FTLE_grid_time: output matrix with dimensions (grid point, time)
-        B: displacement-gradient work array with dimensions (2, 2, grid point)
-        plonds_time: longitude matrix with dimensions (particle, time)
-        platds_time: latitude matrix with dimensions (particle, time)
-        time_hours: sampling times in hours
-        grid_or_npoints: spatial grid, SpectralGrid, or number of FTLE grid points
-        dist_km: initial FTLE particle perturbation in km
-        time_indices: optional time columns to process. Supports `:`, `:all`,
-            `:first`, `:last`/`:final`, `:nonzero`/`:positive`, integer
-            indices, integer-index iterables, and boolean masks.
-
-    Output:
-        FTLE_grid_time, modified in place.
-    """
-
-    dist_km > 0 || throw(ArgumentError("dist_km must be positive"))
+    _check_dist_km(dist_km)
     size(plonds_time) == size(platds_time) ||
         throw(DimensionMismatch("plonds_time and platds_time must have the same size"))
 
     npoints = _grid_npoints(grid_or_npoints)
-    npoints > 0 || throw(ArgumentError("number of grid points must be positive"))
+    expected_particles = 4 * npoints
+    size(plonds_time, 1) == expected_particles ||
+        throw(DimensionMismatch("particle arrays must have $expected_particles rows"))
+    size(plonds_time, 2) == length(time_hours) ||
+        throw(DimensionMismatch("particle arrays and time_hours must have the same number of time samples"))
 
-    expected_nparticles = 4 * npoints
-    actual_nparticles = size(plonds_time, 1)
-    actual_nparticles == expected_nparticles ||
-        throw(DimensionMismatch("particle trajectories have $actual_nparticles particles, expected $expected_nparticles"))
-
-    n_times = length(time_hours)
-    size(plonds_time, 2) == n_times ||
-        throw(DimensionMismatch("particle trajectories have $(size(plonds_time, 2)) time samples, but time_hours has length $n_times"))
-    selected_time_indices = _checked_time_indices(time_indices, time_hours)
-    n_selected_times = length(selected_time_indices)
-    size(FTLE_grid_time) == (npoints, n_selected_times) ||
-        throw(DimensionMismatch("FTLE_grid_time must have size ($npoints, $n_selected_times)"))
+    _check_time_hours(time_hours)
+    selected = _checked_time_indices(time_indices, time_hours)
+    size(ftle) == (npoints, length(selected)) ||
+        throw(DimensionMismatch("ftle must have size ($npoints, $(length(selected)))"))
     size(B) == (2, 2, npoints) ||
         throw(DimensionMismatch("B must have size (2, 2, $npoints)"))
 
-    for (out_index, tindex) in enumerate(selected_time_indices)
-        thour = time_hours[tindex]
-        plonds = _particle_column(plonds_time, tindex)
-        platds = _particle_column(platds_time, tindex)
-
+    for (out_index, time_index) in enumerate(selected)
+        plonds = _particle_column(plonds_time, time_index)
+        platds = _particle_column(platds_time, time_index)
+        _check_particle_column(plonds, platds, time_index)
         displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
-        FTLE_over_grid!(view(FTLE_grid_time, :, out_index), B, thour)
+        FTLE_over_grid!(view(ftle, :, out_index), B, time_hours[time_index])
     end
 
-    return FTLE_grid_time
+    return ftle
 end
 
-"""
-    FTLE_from_particles(
-        plonds_time,
-        platds_time,
-        time_hours,
-        grid_or_npoints,
-        dist_km;
-        time_indices = :
-    )
-
-Compute FTLE from in-memory particle trajectories and allocate the output
-arrays.
-
-This is the allocating companion to [`FTLE_from_particles!`](@ref). It returns
-`FTLE_grid_time, selected_time_hours`, where `FTLE_grid_time` has dimensions
-`(grid point, selected time)`.
-"""
-function FTLE_from_particles(
-    plonds_time,
-    platds_time,
-    time_hours::AbstractVector{<:Real},
-    grid_or_npoints,
-    dist_km;
-    time_indices=Colon(),
-)
-    """
-    Compute FTLE from in-memory particle trajectories.
-
-    Inputs:
-        plonds_time: longitude matrix with dimensions (particle, time)
-        platds_time: latitude matrix with dimensions (particle, time)
-        time_hours: sampling times in hours
-        grid_or_npoints: spatial grid, SpectralGrid, or number of FTLE grid points
-        dist_km: initial FTLE particle perturbation in km
-        time_indices: optional time columns to process. Supports `:`, `:all`,
-            `:first`, `:last`/`:final`, `:nonzero`/`:positive`, integer
-            indices, integer-index iterables, and boolean masks.
-
-    Outputs:
-        FTLE_grid_time: FTLE matrix with one row per grid point and one column per recorded time
-        time_hours: selected sampling times in hours, converted to Float64
-
-    Zero-duration samples are returned as NaN because FTLE is undefined at T = 0.
-    """
-
+function _FTLE_from_particles(plonds_time, platds_time, time_hours::AbstractVector{<:Real}, grid_or_npoints, dist_km; time_indices=Colon())
     npoints = _grid_npoints(grid_or_npoints)
-    n_times = length(time_hours)
-    selected_time_indices = _checked_time_indices(time_indices, time_hours)
-    time_hours_float = _selected_time_hours(time_hours, selected_time_indices)
-    FTLE_grid_time = Array{Float64}(undef, npoints, length(selected_time_indices))
+    _check_time_hours(time_hours)
+    selected = _checked_time_indices(time_indices, time_hours)
+    ftle = Array{Float64}(undef, npoints, length(selected))
     B = Array{Float64}(undef, 2, 2, npoints)
-
-    FTLE_from_particles!(
-        FTLE_grid_time,
-        B,
-        plonds_time,
-        platds_time,
-        time_hours,
-        npoints,
-        dist_km;
-        time_indices=selected_time_indices,
-    )
-    return FTLE_grid_time, time_hours_float
+    _FTLE_from_particles!(ftle, B, plonds_time, platds_time, time_hours, npoints, dist_km; time_indices=selected)
+    return ftle, _selected_time_hours(time_hours, selected)
 end
 
-function _particle_file_time_hours(particles_ds)
-    time_vec = particles_ds["time"][:] # DateTime
-    return Float64.((time_vec .- time_vec[1]) ./ Hour(1)) # Hours since release time
+function _particle_file_time_hours(ds)
+    times = ds["time"][:]
+    isempty(times) && throw(ArgumentError("particle file time variable is empty"))
+
+    first_time = first(times)
+    if first_time isa Real
+        _check_time_hours(times)
+        return Float64.(times .- first_time)
+    end
+
+    try
+        return Float64.((times .- first_time) ./ Hour(1))
+    catch
+        throw(ArgumentError("particle file time variable must contain real elapsed times or date/time values"))
+    end
 end
 
-function _validate_particle_file(particles_ds, npoints)
-    expected_nparticles = 4 * npoints
-    actual_nparticles = particles_ds.dim["particle"]
-    actual_nparticles == expected_nparticles ||
-        throw(DimensionMismatch("particle file has $actual_nparticles particles, expected $expected_nparticles"))
+function _validate_particle_file_metadata(ds, dist_km)
+    if haskey(ds.attrib, _DIST_KM_ATTRIBUTE)
+        file_dist_km = ds.attrib[_DIST_KM_ATTRIBUTE]
+        file_dist_km isa Real ||
+            throw(ArgumentError("particle file dist_km metadata must be real-valued"))
+        isapprox(Float64(file_dist_km), Float64(dist_km); rtol=0, atol=eps(Float64) * max(abs(dist_km), 1)) ||
+            throw(ArgumentError("particle file was generated with dist_km=$file_dist_km, not $dist_km"))
+    end
+    if haskey(ds.attrib, _PARTICLE_ORDER_ATTRIBUTE)
+        String(ds.attrib[_PARTICLE_ORDER_ATTRIBUTE]) == _PARTICLE_ORDER ||
+            throw(ArgumentError("particle file has unsupported FTLE particle order"))
+    end
+    return nothing
+end
+
+function _initial_position_tolerance(expected_plonds, expected_platds)
+    max_offset = 0.0
+    for i in firstindex(expected_plonds):4:lastindex(expected_plonds)
+        max_offset = max(
+            max_offset,
+            abs(_wrapped_lon_diff(expected_plonds[i], expected_plonds[i + 1])) / 2,
+            abs(expected_platds[i + 2] - expected_platds[i + 3]) / 2,
+        )
+    end
+    return max(1.2e-2, 0.05 * max_offset)
+end
+
+function _validate_initial_positions(ds, grid_or_spectral_grid, dist_km)
+    grid_or_spectral_grid isa Integer &&
+        throw(ArgumentError("initial position validation needs a grid; pass validate_initial_positions=false for npoint-only files"))
+
+    expected_plonds, expected_platds = _initial_particle_positions(grid_or_spectral_grid, dist_km)
+    actual_plonds = ds["lon"][:, 1]
+    actual_platds = ds["lat"][:, 1]
+    tolerance = _initial_position_tolerance(expected_plonds, expected_platds)
+
+    for i in eachindex(expected_plonds)
+        lon_error = abs(_wrapped_lon_diff(Float64(actual_plonds[i]), expected_plonds[i]))
+        lat_error = abs(Float64(actual_platds[i]) - expected_platds[i])
+        max(lon_error, lat_error) <= tolerance ||
+            throw(ArgumentError("particle file initial positions do not match the FTLE stencil"))
+    end
 
     return nothing
 end
 
-"""
-    FTLE_from_particle_file!(
-        FTLE_grid_time,
-        B,
-        path,
-        grid_or_spectral_grid,
-        dist_km;
-        time_indices = :
-    )
+function _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions)
+    haskey(ds.dim, "particle") || throw(ArgumentError("particle file must contain a particle dimension"))
+    haskey(ds.dim, "time") || throw(ArgumentError("particle file must contain a time dimension"))
+    for name in ("time", "lon", "lat")
+        haskey(ds, name) || throw(ArgumentError("particle file must contain variable $name"))
+    end
 
-Compute FTLE from a SpeedyWeather `ParticleTracker` NetCDF file, writing into
-caller-provided arrays.
+    npoints = _grid_npoints(grid_or_spectral_grid)
+    nparticles = ds.dim["particle"]
+    ntimes = ds.dim["time"]
+    expected_particles = 4 * npoints
+    nparticles == expected_particles ||
+        throw(DimensionMismatch("particle file has $nparticles particles, expected $expected_particles"))
+    ntimes > 0 || throw(ArgumentError("particle file time dimension is empty"))
 
-`path` must point to a particle-tracker file with longitude and latitude
-variables named `lon` and `lat`. The file must contain four particles per FTLE
-grid point. `grid_or_spectral_grid` may be the spatial grid or the `SpectralGrid`
-used for the tracking run.
+    dimnames(ds["time"]) == ("time",) ||
+        throw(DimensionMismatch("particle file time variable must have dimension (time)"))
+    for name in ("lon", "lat")
+        dimnames(ds[name]) == ("particle", "time") ||
+            throw(DimensionMismatch("particle file $name variable must have dimensions (particle, time)"))
+        Tuple(dimsize(ds[name])) == (nparticles, ntimes) ||
+            throw(DimensionMismatch("particle file $name variable has the wrong size"))
+    end
 
-The output and work arrays have the same requirements as
-[`FTLE_from_particles!`](@ref). Returns `FTLE_grid_time, selected_time_hours`.
-"""
-function FTLE_from_particle_file!(
-    FTLE_grid_time,
+    _validate_particle_file_metadata(ds, dist_km)
+    validate_initial_positions && _validate_initial_positions(ds, grid_or_spectral_grid, dist_km)
+    return nothing
+end
+
+function _write_particle_file_metadata(path; dist_km)
+    ds = NCDataset(path, "a")
+    try
+        ds.attrib[_DIST_KM_ATTRIBUTE] = Float64(dist_km)
+        ds.attrib[_PARTICLE_ORDER_ATTRIBUTE] = _PARTICLE_ORDER
+    finally
+        close(ds)
+    end
+    return path
+end
+
+function _FTLE_from_particle_file!(
+    ftle,
     B,
     path::AbstractString,
     grid_or_spectral_grid,
     dist_km;
     time_indices=Colon(),
+    validate_initial_positions=true,
 )
-    """
-    Compute FTLE from a SpeedyWeather `ParticleTracker` NetCDF file, reusing
-    caller-provided output and work arrays.
-
-    Inputs:
-        FTLE_grid_time: output matrix with dimensions (grid point, time)
-        B: displacement-gradient work array with dimensions (2, 2, grid point)
-        path: path to the particle-tracker NetCDF file
-        grid_or_spectral_grid: spatial grid, or the SpectralGrid used for tracking
-        dist_km: initial FTLE particle perturbation in km
-        time_indices: optional time columns to process. Supports `:`, `:all`,
-            `:first`, `:last`/`:final`, `:nonzero`/`:positive`, integer
-            indices, integer-index iterables, and boolean masks.
-
-    Outputs:
-        FTLE_grid_time: modified in place
-        time_hours: selected sampling times in hours
-
-    Zero-duration samples are returned as NaN because FTLE is undefined at T = 0.
-    """
-
-    npoints = _grid_npoints(grid_or_spectral_grid)
-    particles_ds = NCDataset(path, "r")
-
+    ds = NCDataset(path, "r")
     try
-        _validate_particle_file(particles_ds, npoints)
-        time_hours = _particle_file_time_hours(particles_ds)
-        selected_time_indices = _checked_time_indices(time_indices, time_hours)
-        FTLE_from_particles!(
-            FTLE_grid_time,
-            B,
-            particles_ds["lon"],
-            particles_ds["lat"],
-            time_hours,
-            npoints,
-            dist_km;
-            time_indices=selected_time_indices,
-        )
-        return FTLE_grid_time, _selected_time_hours(time_hours, selected_time_indices)
+        _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions)
+        time_hours = _particle_file_time_hours(ds)
+        selected = _checked_time_indices(time_indices, time_hours)
+        _FTLE_from_particles!(ftle, B, ds["lon"], ds["lat"], time_hours, grid_or_spectral_grid, dist_km; time_indices=selected)
+        return ftle, _selected_time_hours(time_hours, selected)
     finally
-        close(particles_ds)
+        close(ds)
     end
 end
 
-"""
-    FTLE_from_particle_file(path, grid_or_spectral_grid, dist_km; time_indices = :)
-
-Compute FTLE from a SpeedyWeather `ParticleTracker` NetCDF file and allocate the
-output arrays.
-
-This is the allocating companion to [`FTLE_from_particle_file!`](@ref). It
-returns `FTLE_grid_time, selected_time_hours`, where `FTLE_grid_time` has
-dimensions `(grid point, selected time)`.
-"""
-function FTLE_from_particle_file(
-    path::AbstractString,
-    grid_or_spectral_grid,
-    dist_km;
-    time_indices=Colon(),
-)
-    """
-    Compute FTLE from a SpeedyWeather `ParticleTracker` NetCDF file.
-
-    Inputs:
-        path: path to the particle-tracker NetCDF file
-        grid_or_spectral_grid: spatial grid, or the SpectralGrid used for tracking
-        dist_km: initial FTLE particle perturbation in km
-        time_indices: optional time columns to process. Supports `:`, `:all`,
-            `:first`, `:last`/`:final`, `:nonzero`/`:positive`, integer
-            indices, integer-index iterables, and boolean masks.
-
-    Outputs:
-        FTLE_grid_time: FTLE matrix with one row per grid point and one column per recorded time
-        time_hours: selected sampling times in hours
-
-    Zero-duration samples are returned as NaN because FTLE is undefined at T = 0.
-    """
-
-    npoints = _grid_npoints(grid_or_spectral_grid)
-    particles_ds = NCDataset(path, "r")
-
+function _FTLE_from_particle_file(path::AbstractString, grid_or_spectral_grid, dist_km; time_indices=Colon(), validate_initial_positions=true)
+    ds = NCDataset(path, "r")
     try
-        _validate_particle_file(particles_ds, npoints)
-        time_hours = _particle_file_time_hours(particles_ds)
-        selected_time_indices = _checked_time_indices(time_indices, time_hours)
-        FTLE_grid_time = Array{Float64}(undef, npoints, length(selected_time_indices))
+        _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions)
+        time_hours = _particle_file_time_hours(ds)
+        selected = _checked_time_indices(time_indices, time_hours)
+        npoints = _grid_npoints(grid_or_spectral_grid)
+        ftle = Array{Float64}(undef, npoints, length(selected))
         B = Array{Float64}(undef, 2, 2, npoints)
-
-        FTLE_from_particles!(
-            FTLE_grid_time,
-            B,
-            particles_ds["lon"],
-            particles_ds["lat"],
-            time_hours,
-            npoints,
-            dist_km;
-            time_indices=selected_time_indices,
-        )
-        return FTLE_grid_time, _selected_time_hours(time_hours, selected_time_indices)
+        _FTLE_from_particles!(ftle, B, ds["lon"], ds["lat"], time_hours, npoints, dist_km; time_indices=selected)
+        return ftle, _selected_time_hours(time_hours, selected)
     finally
-        close(particles_ds)
+        close(ds)
     end
 end
-
-export Re
-export FTLE_from_particles!
-export FTLE_from_particles
-export FTLE_from_particle_file!
-export FTLE_from_particle_file

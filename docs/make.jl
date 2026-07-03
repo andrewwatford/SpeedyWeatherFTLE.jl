@@ -1,22 +1,23 @@
 using CairoMakie
 using Documenter
+using GeoMakie
 using SpeedyWeatherFTLE
+
+CairoMakie.activate!()
 
 makedocs(
     sitename = "SpeedyWeatherFTLE",
     modules = [SpeedyWeatherFTLE],
     pages = [
         "Home" => "index.md",
-        "Concepts and Data Layout" => "concepts.md",
-        "Running Simulations" => "simulation.md",
-        "Particle Files" => "particle_files.md",
+        "Running FTLE" => "simulation.md",
+        "Worked Example" => "zonal_jet.md",
         "Plotting" => "plotting.md",
-        "API Reference" => "api.md",
+        "API" => "api.md",
     ],
     checkdocs = :exports,
-    format = Documenter.HTML(prettyurls = true),
-)
-
-deploydocs(
-    repo = "github.com/andrewwatford/SpeedyWeatherFTLE.jl",
+    format = Documenter.HTML(
+        prettyurls = get(ENV, "CI", "false") == "true",
+        edit_link = "main",
+    ),
 )

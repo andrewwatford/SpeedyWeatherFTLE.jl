@@ -1,107 +1,80 @@
 # SpeedyWeatherFTLE
 
-SpeedyWeatherFTLE computes finite-time Lyapunov exponents (FTLEs) from
-SpeedyWeather particle trajectories. The package can run a particle-tracking
-simulation from prescribed velocity fields, compute positive- or negative-time
-FTLE, reuse saved `ParticleTracker` NetCDF files, and convert FTLE arrays into
-`RingGrids.Field` objects for plotting.
+SpeedyWeatherFTLE computes finite-time Lyapunov exponent (FTLE) fields from
+SpeedyWeather flow fields. Users work with flow fields and returned
+`RingGrids.Field` values; the particle advection used to estimate deformation is
+an implementation detail.
 
-## What You Usually Need
+## Install
 
-Most workflows start with [`positive_FTLE`](@ref) or [`negative_FTLE`](@ref).
-Pass zonal and meridional velocity fields on the same `RingGrids` grid and ask
-for an [`FTLEResult`](@ref) when you want named fields plus metadata for
-plotting and post-processing.
+SpeedyWeatherFTLE requires Julia 1.12 and the `mk/lyapunov2` SpeedyWeather
+source branch because that branch provides the particle advection API used
+internally.
 
-```@example quickstart
-using CairoMakie
-using Random
+```julia-repl
+julia> using Pkg
+
+julia> speedyweather_url = "https://github.com/SpeedyWeather/SpeedyWeather.jl";
+
+julia> Pkg.add([
+           PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "LowerTriangularArrays"),
+           PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "RingGrids"),
+           PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyTransforms"),
+           PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeather"),
+           PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeatherInternals"),
+       ])
+
+julia> Pkg.add(PackageSpec(url = "https://github.com/andrewwatford/SpeedyWeatherFTLE.jl"))
+```
+
+For plotting:
+
+```julia-repl
+julia> Pkg.add(["CairoMakie", "GeoMakie"])
+```
+
+## First Calculation
+
+```@example first
+using Logging
 using RingGrids
 using SpeedyWeatherFTLE
 
-Random.seed!(42)
+grid = FullGaussianGrid(4)
+u = 0 .* rand(grid)
+v = 0 .* rand(grid)
 
-spatial_grid = FullGaussianGrid(8)
-u = 25 * rand(spatial_grid)
-v = 25 * rand(spatial_grid)
+ftle, time_hours = with_logger(NullLogger()) do
+    FTLE(
+        u,
+        v;
+        simulation_days = 0.25,
+        rint_hours = 3,
+        particle_advection_every_n_time_steps = 1,
+        time_indices = :last,
+    )
+end
 
-result = positive_FTLE(
-    u,
-    v;
-    simulation_days = 1,
-    dynamics = false,
-    rint_hours = 6,
-    return_result = true,
-    time_indices = :nonzero,
-)
-
-size(result)
+(ftle isa Field, size(ftle), time_hours)
 ```
 
-The result stores the selected FTLE time series, the SpeedyWeather spectral grid,
-the selected output times in hours, and run metadata:
+`ftle` is a `RingGrids.Field` with dimensions `(grid point, selected time)`.
+The grid is carried by the field itself, so the matching time vector is the only
+extra return value.
 
-```@example quickstart
-result.direction, result.time_hours, result.dist_km
+```@example first
+final_field = ftle[:, end]
+stretch = stretching_factor(ftle, time_hours)
+
+(final_field isa Field, stretch isa Field)
 ```
 
-To plot the final selected output time, pass the result directly to
-[`surface_plot`](@ref).
+Use `backwards = true` for backward-time FTLE.
 
-```@example quickstart
-fig, ax, sp, cb = surface_plot(
-    result;
-    title = "Positive-time FTLE after $(result.time_hours[end]) hours",
-    label = "FTLE [1/h]",
-)
+## What To Read Next
 
-fig
-```
-
-For an interactive local time-series plot, use [`slider_plot`](@ref). In the
-static documentation build the slider is rendered but not interactive; with
-GLMakie locally it is interactive.
-
-```@example quickstart
-fig, ax, sp, cb = slider_plot(
-    result;
-    title = "Positive-time FTLE",
-    colorbar_label = "FTLE [1/h]",
-)
-
-fig
-```
-
-## Guide
-
-- [Concepts and Data Layout](concepts.md): FTLE direction, units, particle
-  layout, and `time_indices`.
-- [Running Simulations](simulation.md): high-level simulation workflows with
-  [`get_FTLE`](@ref), [`positive_FTLE`](@ref), and [`negative_FTLE`](@ref).
-- [Particle Files](particle_files.md): saving and reusing SpeedyWeather
-  `ParticleTracker` NetCDF output.
-- [Plotting](plotting.md): converting arrays to fields and using
-  [`surface_plot`](@ref), [`slider_plot`](@ref), [`animate_slider_plot`](@ref),
-  and [`globe_plot`](@ref).
-- [API Reference](api.md): generated reference documentation for exported
-  functions and types.
-
-## Development
-
-From the repository root, instantiate the project once:
-
-```julia
-] instantiate
-```
-
-Run the package tests with:
-
-```julia
-] test
-```
-
-Build these docs locally with:
-
-```bash
-julia --project=docs docs/make.jl
-```
+- [Running FTLE](@ref) gives the full flow-field workflow and return values.
+- [Worked Example: Zonal Jet FTLE](@ref) runs a shallow-water zonal jet and
+  compares FTLE from the initial and final velocity fields.
+- [Plotting](@ref) shows `surface_plot`, `slider_plot`, and `globe_plot` with
+  returned FTLE fields.

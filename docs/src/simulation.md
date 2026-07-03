@@ -1,118 +1,60 @@
-# Running Simulations
+# Running FTLE
 
-The high-level simulation API starts from two velocity fields:
+The main entry point is [`FTLE`](@ref). It accepts zonal and meridional
+`RingGrids.Field` values, runs frozen prescribed-flow particle advection
+internally, and post-processes the saved deformation into FTLE fields.
 
-- `u`: zonal velocity on a `RingGrids` grid.
-- `v`: meridional velocity on the same grid.
-
-The fields are passed to SpeedyWeather, particles are released around every grid
-point, a `ParticleTracker` writes trajectories, and SpeedyWeatherFTLE
-post-processes those trajectories into FTLE values.
-
-## Positive-Time FTLE
-
-```julia
+```@example simulation
+using Logging
 using RingGrids
 using SpeedyWeatherFTLE
 
-spatial_grid = FullGaussianGrid(20)
-u = 100 * rand(spatial_grid)
-v = 100 * rand(spatial_grid)
+grid = FullGaussianGrid(4)
+u = 0 .* rand(grid)
+v = 0 .* rand(grid)
 
-result = positive_FTLE(
-    u,
-    v;
-    simulation_days = 10,
-    dynamics = true,
-    rint_hours = 3,
-    return_result = true,
-    time_indices = :nonzero,
-)
+ftle, time_hours = with_logger(NullLogger()) do
+    FTLE(
+        u,
+        v;
+        simulation_days = 0.25,
+        rint_hours = 3,
+        particle_advection_every_n_time_steps = 1,
+        time_indices = :last,
+    )
+end
+
+(ftle isa Field, size(ftle), time_hours)
 ```
 
-`result.ftle` has one row per grid point and one column per selected output
-time. Use [`final_ftle`](@ref) or [`final_ftle_field`](@ref) for the final
-selected time.
+`ftle` is a `RingGrids.Field` time series. Use ordinary field indexing to pick
+one saved horizon:
 
-```julia
-ftle_vector = final_ftle(result)
-ftle_field_for_plotting = final_ftle_field(result)
+```@example simulation
+final_field = ftle[:, end]
+stretch = stretching_factor(ftle, time_hours)
+
+(final_field isa Field, stretch isa Field)
 ```
 
-## Negative-Time FTLE
+For backward-time FTLE, keep the same function and set `backwards = true`:
 
-Negative-time FTLE uses the same velocity fields but runs particle advection
-backward in time:
+```@example simulation
+backward_ftle, backward_time_hours = with_logger(NullLogger()) do
+    FTLE(
+        u,
+        v;
+        backwards = true,
+        simulation_days = 0.25,
+        rint_hours = 3,
+        particle_advection_every_n_time_steps = 1,
+        time_indices = :last,
+    )
+end
 
-```julia
-negative = negative_FTLE(
-    u,
-    v;
-    simulation_days = 10,
-    dynamics = true,
-    rint_hours = 3,
-    return_result = true,
-    time_indices = :last,
-)
+(backward_ftle isa Field, backward_time_hours)
 ```
 
-Use `time_indices = :last` when you only need the final output. This avoids
-post-processing intermediate tracker columns.
-
-## Tuple Return Mode
-
-When `return_result = false`, [`get_FTLE`](@ref) and the direction-specific
-wrappers return a tuple:
-
-```julia
-FTLE_grid_time, spectral_grid, time_hours = positive_FTLE(
-    u,
-    v;
-    simulation_days = 2,
-    rint_hours = 6,
-    time_indices = :nonzero,
-)
-```
-
-This is useful when you want a minimal return value or when existing code
-already expects the older tuple interface.
-
-## Direction as a Keyword
-
-Use [`get_FTLE`](@ref) directly when the direction is a runtime choice:
-
-```julia
-backward_run = true
-
-result = get_FTLE(
-    u,
-    v;
-    backwards = backward_run,
-    return_result = true,
-    time_indices = :nonzero,
-)
-```
-
-The wrappers [`positive_FTLE`](@ref) and [`negative_FTLE`](@ref) intentionally
-reject a `backwards` keyword so that the direction cannot be changed by
-accident.
-
-## Particle Tracker Controls
-
-The particle file is normally temporary and deleted after FTLE computation. You
-can still control the tracker output settings:
-
-```julia
-result = positive_FTLE(
-    u,
-    v;
-    return_result = true,
-    particle_advection_every_n_time_steps = 6,
-    particle_tracker_keepbits = 15,
-    particle_tracker_compression_level = 1,
-    particle_tracker_shuffle = false,
-)
-```
-
-Use the [Particle Files](particle_files.md) workflow when you want to keep and
-reuse the saved trajectories.
+Dynamic workflows are out of scope for SpeedyWeatherFTLE. The internal
+SpeedyWeather simulation used by [`FTLE`](@ref) is always initialized with
+`dynamics = false`.

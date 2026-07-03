@@ -1,92 +1,123 @@
 # SpeedyWeatherFTLE
 
-[![Build Status](https://github.com/andrewwatford/SpeedyWeatherFTLE.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/andrewwatford/SpeedyWeatherFTLE.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![docs](https://img.shields.io/badge/documentation-latest_release-blue.svg)](https://andrewwatford.github.io/SpeedyWeatherFTLE.jl/)
+SpeedyWeatherFTLE computes finite-time Lyapunov exponent (FTLE) fields from
+SpeedyWeather flow fields. Internally it uses particle advection, but the public
+API is about the flow: call `FTLE`, get `RingGrids.Field` values, then analyze
+or plot the fields.
 
-SpeedyWeatherFTLE computes finite-time Lyapunov exponents (FTLEs) from
-SpeedyWeather particle trajectories. It can run a SpeedyWeather particle
-tracking simulation from prescribed velocity fields, compute positive- or
-negative-time FTLE, reuse saved `ParticleTracker` NetCDF files, and convert
-FTLE arrays to RingGrids fields for plotting.
+The package stays narrow:
 
-## Documentation
+- compute forward- or backward-time FTLE with `FTLE(u, v; backwards = ...)`;
+- return FTLE as `RingGrids.Field` time series plus selected integration times;
+- compute finite-time stretching factors;
+- plot FTLE fields with optional Makie/GeoMakie surface, slider, and globe
+  helpers.
 
-The Documenter site in `docs/src` is the best onboarding path. It includes:
+The plotting layer is optional. Compute-only users do not load Makie.
 
-- concepts and array layout for FTLE post-processing;
-- complete examples for positive- and negative-time FTLE;
-- saved particle-file workflows;
-- plotting examples with `surface_plot`, `slider_plot`, `animate_slider_plot`,
-  and `globe_plot`;
-- an API reference generated from the package docstrings.
+## Installation
 
-Build it locally from the repository root with:
+Requires Julia 1.12 or newer.
 
-```bash
-julia --project=docs docs/make.jl
-```
-
-## Examples
-
-See `examples/speedyweather_ftle_snapshots.ipynb` for a local notebook that runs
-and caches a dynamic SpeedyWeather flow simulation, plots the
-initial and evolved velocity components, and then compares initial and evolved
-FTLE fields for a user-selected integration horizon.
-
-## Basic usage
+SpeedyWeatherFTLE currently needs particle-advection APIs from the
+`mk/lyapunov2` branch of the SpeedyWeather monorepo:
 
 ```julia
-using SpeedyWeatherFTLE, RingGrids
+using Pkg
 
-grid = FullGaussianGrid(20)
-u = 100 * rand(grid)
-v = 100 * rand(grid)
+speedyweather_url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"
+Pkg.add([
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "LowerTriangularArrays"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "RingGrids"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyTransforms"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeather"),
+    PackageSpec(url = speedyweather_url, rev = "mk/lyapunov2", subdir = "SpeedyWeatherInternals"),
+])
 
-result = positive_FTLE(
-    u,
-    v;
-    dynamics = true,
-    return_result = true,
-    time_indices = :nonzero,
-)
-
-field = final_ftle_field(result)
-fig, ax, sp, cb = surface_plot(final_ftle(result), result.spectral_grid)
+Pkg.add(PackageSpec(url = "https://github.com/andrewwatford/SpeedyWeatherFTLE.jl"))
 ```
 
-Use `negative_FTLE` for backward-time FTLE. Pass `time_indices = :last` or
-`:final` when only the final tracker sample is needed, or `:nonzero` to skip
-the initial `0 h` sample where FTLE is undefined.
-
-Saved particle files can be post-processed without rerunning the simulation:
+For plotting, add GeoMakie plus a Makie backend:
 
 ```julia
-result = get_FTLE(
+Pkg.add(["CairoMakie", "GeoMakie"])
+```
+
+## Basic Usage
+
+```julia
+using RingGrids
+using SpeedyWeatherFTLE
+
+grid = FullGaussianGrid(4)
+u = 0 .* rand(grid)
+v = 0 .* rand(grid)
+
+ftle, time_hours = FTLE(
     u,
     v;
-    return_result = true,
-    keep_particle_file = true,
-    particle_tracker_path = "particle_output",
+    simulation_days = 0.25,
+    rint_hours = 3,
+    time_indices = :last,
 )
 
-FTLE, time_hours = FTLE_from_particle_file(
-    result.particle_file_path,
-    result.spectral_grid,
-    result.dist_km;
+final_field = ftle[:, end]
+stretch = stretching_factor(ftle, time_hours)
+```
+
+Use `backwards = true` for backward-time FTLE:
+
+```julia
+backward_ftle, backward_time_hours = FTLE(
+    u,
+    v;
+    backwards = true,
+    simulation_days = 0.25,
+    rint_hours = 3,
     time_indices = :last,
 )
 ```
 
-## Setting up the project for development
-To set up the project for development for the first time, first clone this repository. Then, from the repository directory, open `julia` and run:
-```julia
-]instantiate
-]activate .
-```
-`instantiate` creates a `Manifest.toml` file, which creates the environment that is needed for all future use of the package - you usually only need to instantiate once. `activate .` activates the environment in the present directory, that is, the current project.
+Dynamic model workflows are out of scope for this package. `FTLE` initializes
+the internal SpeedyWeather simulation with `dynamics = false`.
 
-## Running the test suite located in `./test`
-Run the following code:
+## Plotting
+
+Load GeoMakie and a backend before using the plotting helpers:
+
 ```julia
-]test
+using CairoMakie
+using GeoMakie
+using SpeedyWeatherFTLE
+
+CairoMakie.activate!()
+
+fig, ax, sp, cb = surface_plot(ftle; time_hours, coastlines = false)
+handle = slider_plot(time_hours, ftle; return_handle = true, coastlines = false)
+set_slider_time!(handle, last(time_hours))
+fig_globe, ax_globe, sp_globe, cb_globe = globe_plot(ftle; time_hours, coastlines = false)
+```
+
+## Public API
+
+- `FTLE`
+- `stretching_factor`, `stretching_factor!`
+- `surface_plot`, `slider_plot`, `globe_plot`, `animate_slider_plot`
+- `SliderPlotHandle`, `set_slider_time!`, `shared_colorrange`
+- `Re`
+
+## Development
+
+```julia
+using Pkg
+Pkg.activate(".")
+Pkg.instantiate()
+Pkg.test()
+```
+
+Build the documentation locally with:
+
+```bash
+julia --project=docs -e 'using Pkg; Pkg.develop(path="."); Pkg.instantiate()'
+julia --project=docs docs/make.jl
 ```

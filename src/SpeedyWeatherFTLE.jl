@@ -1,43 +1,40 @@
 module SpeedyWeatherFTLE
 
-using SpeedyWeather, RingGrids
-using GeoMakie, Makie
-using LinearAlgebra
+using Dates: Hour, Second
 using NCDatasets
-using Logging
+using RingGrids
+using SpeedyWeather
+
+export Re
+export FTLE
+export shared_colorrange
+export stretching_factor, stretching_factor!
+
+export SliderPlotHandle
+export animate_slider_plot
+export globe_plot
+export set_slider_time!
+export slider_plot
+export surface_plot
 
 """
     Re
 
 Average Earth radius used by SpeedyWeatherFTLE, in metres.
 """
-const Re = 6.371e6 # Average Earth radius in meters
+const Re = 6.371e6
 
-include("grid_helpers.jl")
-include("./FTLE_computations.jl")
-include("visualization/ftle_field.jl")
-include("FTLE_result.jl")
-include("visualization/surface_plot.jl")
-include("visualization/slider_plot.jl")
-include("visualization/globe.jl")
-include("get_FTLE.jl")
+const _MAX_STENCIL_DEGREES = 20.0
+const _PARTICLE_FILE_METADATA_PREFIX = "SpeedyWeatherFTLE_"
+const _DIST_KM_ATTRIBUTE = _PARTICLE_FILE_METADATA_PREFIX * "dist_km"
+const _PARTICLE_ORDER_ATTRIBUTE = _PARTICLE_FILE_METADATA_PREFIX * "particle_order"
+const _PARTICLE_ORDER = "east,west,north,south"
 
-export FTLEResult
-export final_ftle
-export final_ftle_field
-export ftle_field
-export FTLE_from_particles!
-export FTLE_from_particles
-export FTLE_from_particle_file!
-export FTLE_from_particle_file
-export surface_plot
-export slider_plot
-export SliderPlotHandle
-export animate_slider_plot
-export globe_plot
-export get_FTLE
-export positive_FTLE
-export negative_FTLE
-export Re
+include("utilities.jl")
+include("particles.jl")
+include("FTLE_computations.jl")
+include("FTLE_diagnostics.jl")
+include("FTLE.jl")
+include("plotting_api.jl")
 
 end
