@@ -21,3 +21,8 @@ makedocs(
         edit_link = "main",
     ),
 )
+
+deploydocs(
+    repo = "github.com/andrewwatford/SpeedyWeatherFTLE.jl",
+    devbranch = "main",
+)
