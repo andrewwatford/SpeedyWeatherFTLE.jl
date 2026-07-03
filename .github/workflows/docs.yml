@@ -2,33 +2,41 @@ name: Documentation
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
-  workflow_dispatch:
 
-concurrency:
+permissions:
+  contents: write
+  
+# Add this section to prevent concurrent builds
+concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   docs:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v6
+
       - uses: julia-actions/setup-julia@v3
         with:
-          version: "1.12"
-      - uses: julia-actions/cache@v3
-      - name: Build docs
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          version: '1'
+
+      - uses: julia-actions/cache@v2
+
+      - name: Install docs dependencies
+        shell: bash
         run: |
           julia --project=docs -e '
             using Pkg
             Pkg.develop(path=".")
             Pkg.instantiate()
           '
-          julia --project=docs docs/make.jl
+
+      - name: Build and deploy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+        run: julia --project=docs docs/make.jl
