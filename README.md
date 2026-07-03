@@ -78,6 +78,10 @@ backward_ftle, backward_time_hours = FTLE(
 )
 ```
 
+`FTLE` defaults to `radius = SpeedyWeatherFTLE.Re`, which is inherited from
+SpeedyWeather. Pass a different radius in metres to change the spherical
+distance scale used by the internal model and FTLE particle geometry.
+
 Dynamic model workflows are out of scope for this package. `FTLE` initializes
 the internal SpeedyWeather simulation with `dynamics = false`.
 

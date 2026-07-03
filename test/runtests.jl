@@ -7,6 +7,7 @@ using Test
     @testset "public API surface" begin
         @test isdefined(SpeedyWeatherFTLE, :FTLE)
         @test isdefined(SpeedyWeatherFTLE, :shared_colorrange)
+        @test SpeedyWeatherFTLE.Re == SpeedyWeather.DEFAULT_RADIUS
         @test !isdefined(SpeedyWeatherFTLE, :FTLEResult)
         @test !isdefined(SpeedyWeatherFTLE, :final_ftle)
         @test !isdefined(SpeedyWeatherFTLE, :final_ftle_field)
@@ -18,6 +19,20 @@ using Test
         @test !isdefined(SpeedyWeatherFTLE, :FTLE_from_particle_file)
         @test !isdefined(SpeedyWeatherFTLE, :FTLE_from_particles)
         @test !isdefined(SpeedyWeatherFTLE, :initial_FTLE_particle_positions)
+    end
+
+    @testset "configurable planet radius" begin
+        radius = 2 * SpeedyWeatherFTLE.Re
+        dist_km = 10
+        delta = rad2deg(dist_km * 1000 / radius)
+
+        plonds, platds = SpeedyWeatherFTLE._initial_particle_positions([0.0], [0.0], dist_km; radius)
+        @test plonds ≈ [delta, -delta, 0.0, 0.0]
+        @test platds ≈ [0.0, 0.0, delta, -delta]
+
+        B = zeros(2, 2, 1)
+        SpeedyWeatherFTLE.displacement_gradient_matrix_central!(B, plonds, platds, dist_km; radius)
+        @test B[:, :, 1] ≈ [1.0 0.0; 0.0 1.0]
     end
 
     @testset "field diagnostics" begin
@@ -41,10 +56,12 @@ using Test
         v = 0 .* rand(grid)
 
         @test_throws MethodError FTLE(u, v; dynamics=true)
+        @test_throws ArgumentError FTLE(u, v; radius=0)
 
         ftle, time_hours = FTLE(
             u,
             v;
+            radius=2 * SpeedyWeatherFTLE.Re,
             backwards=true,
             simulation_days=0.25,
             rint_hours=3,

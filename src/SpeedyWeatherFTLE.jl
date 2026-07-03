@@ -20,13 +20,16 @@ export surface_plot
 """
     Re
 
-Average Earth radius used by SpeedyWeatherFTLE, in metres.
+Default planet radius used by SpeedyWeatherFTLE, in metres.
+
+The value is inherited from SpeedyWeather.
 """
-const Re = 6.371e6
+const Re = SpeedyWeather.DEFAULT_RADIUS
 
 const _MAX_STENCIL_DEGREES = 20.0
 const _PARTICLE_FILE_METADATA_PREFIX = "SpeedyWeatherFTLE_"
 const _DIST_KM_ATTRIBUTE = _PARTICLE_FILE_METADATA_PREFIX * "dist_km"
+const _RADIUS_ATTRIBUTE = _PARTICLE_FILE_METADATA_PREFIX * "radius"
 const _PARTICLE_ORDER_ATTRIBUTE = _PARTICLE_FILE_METADATA_PREFIX * "particle_order"
 const _PARTICLE_ORDER = "east,west,north,south"
 

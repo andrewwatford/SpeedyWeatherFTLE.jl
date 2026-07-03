@@ -38,6 +38,8 @@ Keywords:
 - `simulation_days = 10`: integration length in days.
 - `dist_km = 10`: local stencil radius used internally for the deformation
   estimate.
+- `radius = Re`: planet radius, in metres, used for the SpeedyWeather model and
+  local latitude/longitude distance conversions.
 - `backwards = false`: set `true` for backward-time FTLE.
 - `rint_hours = 3`: output interval, in hours.
 - `particle_advection_every_n_time_steps = 6`: cadence for the internal
@@ -56,6 +58,7 @@ function FTLE(
     v::Field;
     simulation_days=10,
     dist_km=10,
+    radius=Re,
     backwards=false,
     rint_hours=3,
     particle_advection_every_n_time_steps=6,
@@ -64,6 +67,7 @@ function FTLE(
 )
     u.grid == v.grid || throw(ArgumentError("u and v must use the same grid"))
     dist_km = _check_dist_km(dist_km)
+    radius = _check_radius(radius)
     particle_advection_every_n_time_steps >= 1 ||
         throw(ArgumentError("particle_advection_every_n_time_steps must be at least 1"))
     rint_hours = _check_positive(rint_hours, "rint_hours")
@@ -79,7 +83,8 @@ function FTLE(
         every_n_time_steps=particle_advection_every_n_time_steps,
     )
 
-    model = BarotropicModel(spectral_grid; dynamics=false, particle_advection)
+    planet = Earth(spectral_grid; radius)
+    model = BarotropicModel(spectral_grid; dynamics=false, particle_advection, planet)
     simulation = initialize!(model)
     model.callbacks[:particle_tracker] = ParticleTracker(
         spectral_grid;
@@ -88,7 +93,7 @@ function FTLE(
     )
 
     londs, latds = RingGrids.get_londlatds(u.grid)
-    _perturb_positions!(simulation.variables.prognostic.particles, londs, latds, dist_km)
+    _perturb_positions!(simulation.variables.prognostic.particles, londs, latds, dist_km; radius)
 
     SpeedyWeather.initialize!(simulation; period=_period_days(simulation_days))
     simulation.variables.grid.u[:, 1, 1] .= u
@@ -101,8 +106,8 @@ function FTLE(
     path = joinpath(tracker.path == "" ? model.output.run_path : tracker.path, tracker.filename)
 
     try
-        _write_particle_file_metadata(path; dist_km)
-        ftle, time_hours = _FTLE_from_particle_file(path, spectral_grid, dist_km; time_indices)
+        _write_particle_file_metadata(path; dist_km, radius)
+        ftle, time_hours = _FTLE_from_particle_file(path, spectral_grid, dist_km; time_indices, radius)
         return Field(ftle, spectral_grid.grid), time_hours
     finally
         rm(path; force=true)

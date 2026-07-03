@@ -1,5 +1,6 @@
-function displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
+function displacement_gradient_matrix_central!(B, plonds, platds, dist_km; radius=Re)
     _check_dist_km(dist_km)
+    radius = _check_radius(radius)
     length(plonds) == length(platds) ||
         throw(DimensionMismatch("plonds and platds must have the same length"))
     length(plonds) % 4 == 0 ||
@@ -9,7 +10,7 @@ function displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
     size(B) == (2, 2, npoints) ||
         throw(DimensionMismatch("B must have size (2, 2, $npoints)"))
 
-    dfac = Re / (1000 * dist_km) / 2
+    dfac = radius / (1000 * dist_km) / 2
     @inbounds for i in 1:npoints
         p = 4 * i
         B[1, 1, i] = deg2rad(_wrapped_lon_diff(plonds[p - 3], plonds[p - 2])) *
@@ -23,9 +24,9 @@ function displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
     return B
 end
 
-function displacement_gradient_matrix_central(plonds, platds, dist_km)
+function displacement_gradient_matrix_central(plonds, platds, dist_km; radius=Re)
     B = Array{Float64}(undef, 2, 2, length(plonds) ÷ 4)
-    return displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
+    return displacement_gradient_matrix_central!(B, plonds, platds, dist_km; radius)
 end
 
 @inline function _largest_cauchy_green_eigenvalue(a, b, c, d)
@@ -87,8 +88,10 @@ function _FTLE_from_particles!(
     grid_or_npoints,
     dist_km;
     time_indices=Colon(),
+    radius=Re,
 )
     _check_dist_km(dist_km)
+    radius = _check_radius(radius)
     size(plonds_time) == size(platds_time) ||
         throw(DimensionMismatch("plonds_time and platds_time must have the same size"))
 
@@ -110,20 +113,28 @@ function _FTLE_from_particles!(
         plonds = _particle_column(plonds_time, time_index)
         platds = _particle_column(platds_time, time_index)
         _check_particle_column(plonds, platds, time_index)
-        displacement_gradient_matrix_central!(B, plonds, platds, dist_km)
+        displacement_gradient_matrix_central!(B, plonds, platds, dist_km; radius)
         FTLE_over_grid!(view(ftle, :, out_index), B, time_hours[time_index])
     end
 
     return ftle
 end
 
-function _FTLE_from_particles(plonds_time, platds_time, time_hours::AbstractVector{<:Real}, grid_or_npoints, dist_km; time_indices=Colon())
+function _FTLE_from_particles(
+    plonds_time,
+    platds_time,
+    time_hours::AbstractVector{<:Real},
+    grid_or_npoints,
+    dist_km;
+    time_indices=Colon(),
+    radius=Re,
+)
     npoints = _grid_npoints(grid_or_npoints)
     _check_time_hours(time_hours)
     selected = _checked_time_indices(time_indices, time_hours)
     ftle = Array{Float64}(undef, npoints, length(selected))
     B = Array{Float64}(undef, 2, 2, npoints)
-    _FTLE_from_particles!(ftle, B, plonds_time, platds_time, time_hours, npoints, dist_km; time_indices=selected)
+    _FTLE_from_particles!(ftle, B, plonds_time, platds_time, time_hours, npoints, dist_km; time_indices=selected, radius)
     return ftle, _selected_time_hours(time_hours, selected)
 end
 
@@ -144,13 +155,20 @@ function _particle_file_time_hours(ds)
     end
 end
 
-function _validate_particle_file_metadata(ds, dist_km)
+function _validate_particle_file_metadata(ds, dist_km; radius=Re)
     if haskey(ds.attrib, _DIST_KM_ATTRIBUTE)
         file_dist_km = ds.attrib[_DIST_KM_ATTRIBUTE]
         file_dist_km isa Real ||
             throw(ArgumentError("particle file dist_km metadata must be real-valued"))
         isapprox(Float64(file_dist_km), Float64(dist_km); rtol=0, atol=eps(Float64) * max(abs(dist_km), 1)) ||
             throw(ArgumentError("particle file was generated with dist_km=$file_dist_km, not $dist_km"))
+    end
+    if haskey(ds.attrib, _RADIUS_ATTRIBUTE)
+        file_radius = ds.attrib[_RADIUS_ATTRIBUTE]
+        file_radius isa Real ||
+            throw(ArgumentError("particle file radius metadata must be real-valued"))
+        isapprox(Float64(file_radius), Float64(radius); rtol=0, atol=eps(Float64) * max(abs(radius), 1)) ||
+            throw(ArgumentError("particle file was generated with radius=$file_radius, not $radius"))
     end
     if haskey(ds.attrib, _PARTICLE_ORDER_ATTRIBUTE)
         String(ds.attrib[_PARTICLE_ORDER_ATTRIBUTE]) == _PARTICLE_ORDER ||
@@ -171,11 +189,11 @@ function _initial_position_tolerance(expected_plonds, expected_platds)
     return max(1.2e-2, 0.05 * max_offset)
 end
 
-function _validate_initial_positions(ds, grid_or_spectral_grid, dist_km)
+function _validate_initial_positions(ds, grid_or_spectral_grid, dist_km; radius=Re)
     grid_or_spectral_grid isa Integer &&
         throw(ArgumentError("initial position validation needs a grid; pass validate_initial_positions=false for npoint-only files"))
 
-    expected_plonds, expected_platds = _initial_particle_positions(grid_or_spectral_grid, dist_km)
+    expected_plonds, expected_platds = _initial_particle_positions(grid_or_spectral_grid, dist_km; radius)
     actual_plonds = ds["lon"][:, 1]
     actual_platds = ds["lat"][:, 1]
     tolerance = _initial_position_tolerance(expected_plonds, expected_platds)
@@ -190,7 +208,7 @@ function _validate_initial_positions(ds, grid_or_spectral_grid, dist_km)
     return nothing
 end
 
-function _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions)
+function _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions, radius=Re)
     haskey(ds.dim, "particle") || throw(ArgumentError("particle file must contain a particle dimension"))
     haskey(ds.dim, "time") || throw(ArgumentError("particle file must contain a time dimension"))
     for name in ("time", "lon", "lat")
@@ -214,15 +232,16 @@ function _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_in
             throw(DimensionMismatch("particle file $name variable has the wrong size"))
     end
 
-    _validate_particle_file_metadata(ds, dist_km)
-    validate_initial_positions && _validate_initial_positions(ds, grid_or_spectral_grid, dist_km)
+    _validate_particle_file_metadata(ds, dist_km; radius)
+    validate_initial_positions && _validate_initial_positions(ds, grid_or_spectral_grid, dist_km; radius)
     return nothing
 end
 
-function _write_particle_file_metadata(path; dist_km)
+function _write_particle_file_metadata(path; dist_km, radius=Re)
     ds = NCDataset(path, "a")
     try
         ds.attrib[_DIST_KM_ATTRIBUTE] = Float64(dist_km)
+        ds.attrib[_RADIUS_ATTRIBUTE] = Float64(radius)
         ds.attrib[_PARTICLE_ORDER_ATTRIBUTE] = _PARTICLE_ORDER
     finally
         close(ds)
@@ -238,29 +257,39 @@ function _FTLE_from_particle_file!(
     dist_km;
     time_indices=Colon(),
     validate_initial_positions=true,
+    radius=Re,
 )
+    radius = _check_radius(radius)
     ds = NCDataset(path, "r")
     try
-        _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions)
+        _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions, radius)
         time_hours = _particle_file_time_hours(ds)
         selected = _checked_time_indices(time_indices, time_hours)
-        _FTLE_from_particles!(ftle, B, ds["lon"], ds["lat"], time_hours, grid_or_spectral_grid, dist_km; time_indices=selected)
+        _FTLE_from_particles!(ftle, B, ds["lon"], ds["lat"], time_hours, grid_or_spectral_grid, dist_km; time_indices=selected, radius)
         return ftle, _selected_time_hours(time_hours, selected)
     finally
         close(ds)
     end
 end
 
-function _FTLE_from_particle_file(path::AbstractString, grid_or_spectral_grid, dist_km; time_indices=Colon(), validate_initial_positions=true)
+function _FTLE_from_particle_file(
+    path::AbstractString,
+    grid_or_spectral_grid,
+    dist_km;
+    time_indices=Colon(),
+    validate_initial_positions=true,
+    radius=Re,
+)
+    radius = _check_radius(radius)
     ds = NCDataset(path, "r")
     try
-        _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions)
+        _validate_particle_file(ds, grid_or_spectral_grid, dist_km; validate_initial_positions, radius)
         time_hours = _particle_file_time_hours(ds)
         selected = _checked_time_indices(time_indices, time_hours)
         npoints = _grid_npoints(grid_or_spectral_grid)
         ftle = Array{Float64}(undef, npoints, length(selected))
         B = Array{Float64}(undef, 2, 2, npoints)
-        _FTLE_from_particles!(ftle, B, ds["lon"], ds["lat"], time_hours, npoints, dist_km; time_indices=selected)
+        _FTLE_from_particles!(ftle, B, ds["lon"], ds["lat"], time_hours, npoints, dist_km; time_indices=selected, radius)
         return ftle, _selected_time_hours(time_hours, selected)
     finally
         close(ds)
