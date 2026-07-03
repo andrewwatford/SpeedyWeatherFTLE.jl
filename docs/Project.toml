@@ -15,6 +15,7 @@ LowerTriangularArrays = {rev = "mk/lyapunov2", subdir = "LowerTriangularArrays",
 RingGrids = {rev = "mk/lyapunov2", subdir = "RingGrids", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl"}
 SpeedyTransforms = {rev = "mk/lyapunov2", subdir = "SpeedyTransforms", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"}
 SpeedyWeather = {rev = "mk/lyapunov2", subdir = "SpeedyWeather", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"}
+SpeedyWeatherFTLE = {path = ".."}
 SpeedyWeatherInternals = {rev = "mk/lyapunov2", subdir = "SpeedyWeatherInternals", url = "https://github.com/SpeedyWeather/SpeedyWeather.jl/"}
 
 [compat]

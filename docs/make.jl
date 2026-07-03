@@ -11,6 +11,7 @@ makedocs(
     pages = [
         "Home" => "index.md",
         "Running FTLE" => "simulation.md",
+        "Worked Example" => "zonal_jet.md",
         "Plotting" => "plotting.md",
         "API" => "api.md",
     ],

@@ -74,5 +74,7 @@ Use `backwards = true` for backward-time FTLE.
 ## What To Read Next
 
 - [Running FTLE](@ref) gives the full flow-field workflow and return values.
+- [Worked Example: Zonal Jet FTLE](@ref) runs a shallow-water zonal jet and
+  compares FTLE from the initial and final velocity fields.
 - [Plotting](@ref) shows `surface_plot`, `slider_plot`, and `globe_plot` with
   returned FTLE fields.
