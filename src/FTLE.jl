@@ -18,6 +18,7 @@ function _spectral_grid_for(field::Field)
     grid_type = typeof(grid)
     rings = getproperty(grid, :rings)
     guesses = unique(Int[floor(Int, 2 * length(rings) / 3), ceil(Int, 2 * length(rings) / 3)])
+    guesses = vcat(guesses, guesses .+ 1, guesses .- 1)
     for trunc in guesses
         spectral_grid = SpectralGrid(nlayers=1, trunc=trunc, Grid=grid_type)
         spectral_grid.grid == grid && return spectral_grid
