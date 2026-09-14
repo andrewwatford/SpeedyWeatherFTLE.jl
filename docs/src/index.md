@@ -1,9 +1,7 @@
 # SpeedyWeatherFTLE
 
 SpeedyWeatherFTLE computes finite-time Lyapunov exponent (FTLE) fields from
-SpeedyWeather flow fields. Users work with flow fields and returned
-`RingGrids.Field` values; the particle advection used to estimate deformation is
-an implementation detail.
+SpeedyWeather velocity fields.
 
 ## Install
 
