@@ -1,16 +1,14 @@
 # SpeedyWeatherFTLE
 
 SpeedyWeatherFTLE computes finite-time Lyapunov exponent (FTLE) fields from
-SpeedyWeather flow fields. Internally it uses particle advection, but the public
-API is about the flow: call `FTLE`, get `RingGrids.Field` values, then analyze
-or plot the fields.
+SpeedyWeather velocity fields.
 
-The package stays narrow:
+The package:
 
-- compute forward- or backward-time FTLE with `FTLE(u, v; backwards = ...)`;
-- return FTLE as `RingGrids.Field` time series plus selected integration times;
-- compute finite-time stretching factors;
-- plot FTLE fields with optional Makie/GeoMakie surface, slider, and globe
+- computes forward- or backward-time FTLE with `FTLE(u, v; backwards = ...)`;
+- returns FTLE as `RingGrids.Field` time series plus selected integration times;
+- computes finite-time stretching factors;
+- plots FTLE fields with optional Makie/GeoMakie surface, slider, and globe
   helpers.
 
 The plotting layer is optional. Compute-only users do not load Makie.
@@ -40,7 +38,7 @@ Pkg.add(PackageSpec(url = "https://github.com/andrewwatford/SpeedyWeatherFTLE.jl
 For plotting, add GeoMakie plus a Makie backend:
 
 ```julia
-Pkg.add(["CairoMakie", "GeoMakie"])
+Pkg.add(["GLMakie", "GeoMakie"])
 ```
 
 ## Basic Usage
