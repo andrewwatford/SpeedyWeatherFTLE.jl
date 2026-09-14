@@ -2,3 +2,6 @@
 **/*.nc
 .dev/*
 /docs/build/
+figs/
+figs_new/
+/.DS_Store
