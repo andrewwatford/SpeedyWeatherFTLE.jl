@@ -21,7 +21,7 @@ using SpeedyWeather
 using SpeedyWeatherFTLE
 
 spectral_grid = SpectralGrid(trunc=120, nlayers=1)
-still_earth = Earth(spectral_grid, rotation=0)
+still_earth = Earth(spectral_grid)
 initial_conditions = RandomVelocity(spectral_grid)
 forcing = nothing
 drag = nothing
@@ -47,8 +47,5 @@ for t in 1:100
         colorrange = (0, 0.03)
     )
     hidedecorations!()
-    save("figs/ftle_$(t).png", fig)
+    save("rot_figs/ftle_$(t).png", fig)
 end
-
-gif_cmd = `magick -delay 10 $(for i in $(seq 1 1 100); do echo figs/ftle_${i}.png; done) -loop 0 anim.gif`
-run(gif_cmd)
